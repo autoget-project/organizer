@@ -1,0 +1,23 @@
+name: On Push and PR
+
+on:
+  pull_request:
+  push:
+    branches:
+    - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v6
+
+    - name: Run check, linter and tests
+      run: |
+        uv sync --locked --all-extras --dev
+        uvx ruff check .
+        uvx ruff format . --check
+        uv run pytest

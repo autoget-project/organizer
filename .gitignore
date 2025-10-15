@@ -1,28 +1,7 @@
-# Ignore SQLite databases
-*.db
+__pycache__
+.venv
+.ruff_cache
+build
+.pytest_cache
 
-# Ignore configuration files with sensitive data
-backend/config.yaml
-
-# Node modules and package locks for the frontend
-web/node_modules/
-web/pnpm-lock.yaml
-
-# Build artifacts
-dist/
-build/
-
-# Logs and temporary files
-*.log
-*.env
-*.tmp
-.env
-
-# Ignore editor and system files
-.DS_Store
-.idea/
-*.swp
-*.swo
-
-# Ignore my local setup
 .local

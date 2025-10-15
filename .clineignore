@@ -1,2 +1,7 @@
-.env
+__pycache__
+.venv
+.ruff_cache
+build
+.pytest_cache
+
 .local
