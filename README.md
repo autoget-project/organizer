@@ -51,14 +51,16 @@ This endpoint executes a previously generated organization plan.
 **Request Payload:**
 
 ```json
-"plan": [
-    {
-        "file": "path/to/file1",
-        "action": "move",
-        "target": "target/path/to/file1"
-    },
-    ...
-]
+{
+    "plan": [
+        {
+            "file": "path/to/file1",
+            "action": "move",
+            "target": "target/path/to/file1"
+        },
+        ...
+    ]
+}
 ```
 
 **Response:**
