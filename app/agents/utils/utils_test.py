@@ -1,5 +1,5 @@
 from .utils import simple_move_plan
-from app.agents.models import Category, PlanAction, PlanResponse
+from ..models import Category, PlanAction, PlanResponse
 
 
 def test_simple_move_plan_single_file():

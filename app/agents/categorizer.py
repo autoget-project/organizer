@@ -1,15 +1,10 @@
-import os
-
-from google.adk.agents import Agent
-from google.adk.models.lite_llm import LiteLlm
+from pydantic_ai import Agent, ToolOutput
+from pydantic_ai.mcp import MCPServer
 from pydantic import BaseModel, Field
+from .models import Category, category_list, PlanRequest
+from .ai import metadataMcp, model, allowedTools, setupLogfire
 
-from .mcp_tools import mcp_search_tool
-from .models import category_list
-
-llm_model = os.getenv("MODEL")
-
-INSTRUCTION: str = (
+_INSTRUCTION: str = (
   """\
 You are an AI agent that categorizes a set of downloaded files based on their paths and optional
 metadata from the download source. The user will provide input in this JSON format:
@@ -45,8 +40,10 @@ Your task:
   dominant one. No need to specify variants like Simplified/Traditional Chinese.
 
 To ensure accuracy:
-- Use DuckDuckGoWebSearch to verify titles, keywords, or inferred names from files/metadata. For
-  example, search for a title to confirm if it's a movie, TV series, or book.
+- Use `search_movies`, `search_tv_shows`, `search_porn` or `search_japanese_porn` to verify titles,
+  keywords, or inferred names from files/metadata. To check if it match your guessing.
+- Fallback if no good result found: Use `web_search` to verify titles, keywords, or inferred names
+  from files/metadata. For example, search for a title to confirm if it's a movie or TV series.
 - Prioritize metadata if present; otherwise, parse file paths for clues (e.g., episode numbers
   suggest tv_series).
 - Handle common file types: video files (.mp4, .mkv) for movie/tv_series/anim/porn/music_video;
@@ -64,19 +61,42 @@ structure:
 
 
 class CategoryResponse(BaseModel):
-  category: str = Field(description="The detected category of the download.")
+  category: Category = Field(description="The detected category of the download.")
   language: str = Field(description="The detected language of the download.")
 
 
-def agent() -> Agent:
-  return Agent(
+def agent(mcp: MCPServer) -> Agent:
+  a = Agent(
+    model=model(),
     name="categorizer",
-    model=LiteLlm(model=llm_model),
-    description="This agent catgorize the download",
-    instruction=INSTRUCTION,
-    output_schema=CategoryResponse,
-    output_key="category",
-    disallow_transfer_to_peers=True,  # incompatible with output_schema
-    disallow_transfer_to_parent=True,  # incompatible with output_schema
-    tools=[mcp_search_tool()],
+    instructions=_INSTRUCTION,
+    output_type=ToolOutput(CategoryResponse),
+    toolsets=[mcp],
+    prepare_tools=allowedTools(
+      [
+        "web_search",
+        "search_movies",
+        "search_tv_shows",
+        "search_porn",
+        "search_japanese_porn",
+      ]
+    ),
   )
+
+  return a
+
+
+if __name__ == "__main__":
+  if model():
+    setupLogfire()
+
+    req = PlanRequest(
+      files=[
+        "The.Lychee.Road.2025.E01.mkv",
+      ],
+    )
+
+    a = agent(metadataMcp())
+    res = a.run_sync(req.model_dump_json())
+    print(f"output: ${res.output}")
+    print(f"usage: ${res.usage()}")

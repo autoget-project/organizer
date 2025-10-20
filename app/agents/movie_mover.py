@@ -1,18 +1,11 @@
-import os
-
-from google.adk.agents import Agent
-from google.adk.agents.readonly_context import ReadonlyContext
-from google.adk.models.lite_llm import LiteLlm
-
-from .mcp_tools import mcp_search_tool
-from .models import PlanResponse
+from pydantic_ai import Agent, ToolOutput
+from pydantic_ai.mcp import MCPServer
+from .models import Category, PlanRequest, PlanResponse
 from .categorizer import CategoryResponse
+from .ai import metadataMcp, model, allowedTools, setupLogfire
 
-llm_model = os.getenv("MODEL")
 
-
-def _get_instruction(context: ReadonlyContext) -> str:
-  category = CategoryResponse.model_validate(context.state.get("category"))
+def _get_instruction(category: CategoryResponse) -> str:
   return f"""\
 You are an AI agent specialized in organizing movie files for media libraries like Jellyfin. Your
 goal is to analyze a set of downloaded files, identify the movie they belong to, and generate a
@@ -50,23 +43,26 @@ You will receive input strictly in this JSON format:
      .ass, .sub, etc.). Skip everything else.
 
 2. **Identify the Movie**:
-   - Infer the movie name from file paths or metadata.
-   - Use DuckDuckGoWebSearch to Search online (e.g., TMDB, IMDb, or Chinese sources like Douban) to
-     confirm the exact movie. **Prefer the Chinese name if available** (e.g., "流浪地球" for The
-     Wandering Earth); fall back to English if no Chinese name exists.
+   - Infer the movie name from file paths or metadata. You must call at least 1 tool.
+   - Use `search_movies` to search on TMDB for the movie. to confirm the exact movie. **Prefer the
+     Chinese name if available** (e.g., "阿甘正传" for Forrest Gump); fall back to English if
+     no Chinese name exists.
+   - fallback if no good result found from `search_movies`: Use `web_search` to search online
+     (e.g., TMDB, IMDb, or Chinese sources like Douban) to confirm the exact movie. **Prefer the
+     Chinese name if available**
    - Determine the release year: Use the movie's release year (query TMDB for this specifically).
    - If files span multiple movies, group them logically and note any ambiguities in your reasoning
      (but output one JSON array covering all).
 
 3. **Determine Jellyfin Naming Structure**:
-   - Base folder: `{category.category}/{category.language}`
+   - Base folder: `{category.category.name}/{category.language}`
    - Movie folder: `Movie Name (Year)` (using Chinese name if available, else English; Year from
      step 2).
    - Video filename: `Movie Name (Year).ext` (keep original extension).
    - Subtitle filename: Place in the same movie folder as its matching video. Name it
      `Movie Name (Year).Human Readable Language.ISO 639-2 Lang Code.ext`
-     - Examples: `{category.category}/{category.language}/流浪地球 (2019)/流浪地球 (2019).简体中文.chi.srt` or
-       `{category.category}/{category.language}/The Wandering Earth (2019)/The Wandering Earth (2019).English.eng.srt`.
+     - Examples: `{category.category.name}/{category.language}/阿甘正传 (1994)/阿甘正传 (1994).简体中文.chi.srt` or
+       `{category.category.name}/{category.language}/Forrest Gump (1994)/Forrest Gump (1994).English.eng.srt`.
      - Infer language from filename (e.g., "zh" or "chi" for Chinese) or default to "English.eng"
        if unclear. Use human-readable labels like "简体中文" for Chinese, "English" for English.
      - Match subtitles to videos by movie title; if no match, skip or pair logically.
@@ -87,7 +83,7 @@ represents one file:
     {{
         "file": "/original/path/to/file.ext",
         "action": "move" | "skip",
-        "target": "{category.category}/{category.language}/Movie Name (Year)/Movie Name (Year).ext"
+        "target": "{category.category.name}/{category.language}/Movie Name (Year)/Movie Name (Year).ext"
     }},
     ...
 ]
@@ -101,17 +97,17 @@ Example Output:
 ```
 [
     {{
-        "file": "/downloads/Movie.Title.2023.mkv",
+        "file": "/downloads/Forrest.Gump.1994.mkv",
         "action": "move",
-        "target": "{category.category}/{category.language}/流浪地球 (2019)/流浪地球 (2019).mkv"
+        "target": "{category.category.name}/{category.language}/阿甘正传 (1994)/阿甘正传 (1994).mkv"
     }},
     {{
-        "file": "/downloads/Movie.Title.2023.zh.srt",
+        "file": "/downloads/Forrest.Gump.1994.zh.srt",
         "action": "move",
-        "target": "{category.category}/{category.language}/流浪地球 (2019)/流浪地球 (2019).简体中文.chi.srt"
+        "target": "{category.category.name}/{category.language}/阿甘正传 (1994)/阿甘正传 (1994).简体中文.chi.srt"
     }},
     {{
-        "file": "/downloads/image.jpg",
+        "file": "/downloads/Forrest.Gump.1994.cover.jpg",
         "action": "skip",
         "target": null
     }}
@@ -120,14 +116,31 @@ Example Output:
 """
 
 
-def agent() -> Agent:
+def agent(mcp: MCPServer, category: CategoryResponse) -> Agent:
   return Agent(
-    name="movie_categorizer",
-    model=LiteLlm(model=llm_model),
-    description="This agent creates a plan to organize downloaded movies",
-    instruction=_get_instruction,
-    output_schema=PlanResponse,
-    disallow_transfer_to_peers=True,  # incompatible with output_schema
-    disallow_transfer_to_parent=True,  # incompatible with output_schema
-    tools=[mcp_search_tool()],
+    name="movie_mover",
+    model=model(),
+    instructions=_get_instruction(category),
+    output_type=ToolOutput(PlanResponse),
+    toolsets=[mcp],
+    prepare_tools=allowedTools(["web_search", "search_movies"]),
   )
+
+
+if __name__ == "__main__":
+  if model():
+    setupLogfire()
+
+    req = PlanRequest(
+      files=[
+        "The.Mad.Phoenix.1997/The.Mad.Phoenix.1997.mkv",
+        "The.Mad.Phoenix.1997/The.Mad.Phoenix.en.ass",
+        "The.Mad.Phoenix.1997/cover.jpg",
+        "The.Mad.Phoenix.1997/behind the scenes.mp4.part",
+      ],
+    )
+
+    a = agent(metadataMcp(), CategoryResponse(category=Category.movie, language="Chinese"))
+    res = a.run_sync(req.model_dump_json())
+    print(f"output: ${res.output}")
+    print(f"usage: ${res.usage()}")

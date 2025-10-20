@@ -1,8 +1,6 @@
 from typing import List
 
 from ..models import PlanResponse, PlanAction, Category
-from google.adk.events import Event
-from google.genai.types import Content, Part
 
 
 def simple_move_plan(category: Category, files: List[str]) -> PlanResponse:
@@ -38,14 +36,3 @@ def simple_move_plan(category: Category, files: List[str]) -> PlanResponse:
     )
 
   return res
-
-
-def simple_move_plan_event(agent_name, category: Category, files: List[str]) -> Event:
-  resp = simple_move_plan(category, files).model_dump_json()
-  content = Content(parts=[Part(text=resp)], role="model")
-
-  return Event(
-    author=agent_name,
-    content=content,
-    turn_complete=True,
-  )

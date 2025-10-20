@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import List, Optional
+from typing import List, Literal, Optional
 from pydantic import BaseModel
 
 
@@ -29,6 +29,14 @@ category_list: List[str] = [
   Category.music_video.name,
 ]
 
+simple_move_categories = [
+  Category.photobook,
+  Category.audio_book,
+  Category.book,
+  Category.music,
+  Category.music_video,
+]
+
 
 class PlanRequest(BaseModel):
   files: List[str]
@@ -37,7 +45,7 @@ class PlanRequest(BaseModel):
 
 class PlanAction(BaseModel):
   file: str
-  action: str
+  action: Literal["move", "skip"]
   target: Optional[str] = None
 
   def __hash__(self) -> int:
@@ -45,4 +53,8 @@ class PlanAction(BaseModel):
 
 
 class PlanResponse(BaseModel):
+  plan: List[PlanAction]
+
+
+class ExecuteRequest(BaseModel):
   plan: List[PlanAction]

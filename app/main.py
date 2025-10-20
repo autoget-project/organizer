@@ -1,32 +1,10 @@
 import os
 import sys
 from contextlib import asynccontextmanager
-from typing import List, Literal, Optional
+from typing import List
 from fastapi import FastAPI
-from pydantic import BaseModel
 
-from .agents.models import Category
-
-
-# Pydantic models for /v1/plan
-class PlanRequest(BaseModel):
-  files: List[str]
-  metadata: dict[str, str] = None
-
-
-class PlanAction(BaseModel):
-  file: str
-  action: Literal["move", "ignore"]
-  target: Optional[str] = None
-
-
-class PlanResponse(BaseModel):
-  plan: List[PlanAction]
-
-
-# Pydantic models for /v1/execute
-class ExecuteRequest(BaseModel):
-  plan: List[PlanAction]
+from .agents.models import Category, PlanRequest, PlanAction, PlanResponse, ExecuteRequest
 
 
 def check_env_vars(name: str):

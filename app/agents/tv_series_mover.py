@@ -1,18 +1,11 @@
-import os
-
-from google.adk.agents import Agent
-from google.adk.agents.readonly_context import ReadonlyContext
-from google.adk.models.lite_llm import LiteLlm
-
-from .mcp_tools import mcp_search_tool
-from .models import PlanResponse
+from pydantic_ai import Agent, ToolOutput
+from pydantic_ai.mcp import MCPServer
+from .models import Category, PlanRequest, PlanResponse
 from .categorizer import CategoryResponse
+from .ai import metadataMcp, model, allowedTools, setupLogfire
 
-llm_model = os.getenv("MODEL")
 
-
-def _get_instruction(context: ReadonlyContext) -> str:
-  category = CategoryResponse.model_validate(context.state.get("category"))
+def _get_instruction(category: CategoryResponse) -> str:
   return f"""\
 You are an AI agent specialized in organizing TV series files for media libraries like Jellyfin.
 Your goal is to analyze a set of downloaded files, identify the TV series they belong to, and
@@ -50,9 +43,10 @@ You will receive input strictly in this JSON format:
      .ass, .sub, etc.). Skip everything else.
 
 2. **Identify the TV Series**:
-   - Infer the series name from file paths or metadata.
-   - Use DuckDuckGoWebSearch to Search online (e.g., TMDB, IMDb, or Chinese sources like Douban) to
-     confirm the exact series.
+   - Infer the series name from file paths or metadata. You must call at least 1 tool.
+   - Use `search_tv_shows` to search on TMDB for the series. To confirm the exact series.
+   - fallback if no good result found from `search_tv_shows`: Use `web_search` to Search online
+     (e.g., TMDB, IMDb, or Chinese sources like Douban) to confirm the exact series.
      **Prefer the Chinese name if available (e.g., "权力的游戏" for Game of Thrones); fall back to
      English if no Chinese name exists.**
    - Determine the release year: Use the first season's release year (query TMDB for this
@@ -61,7 +55,7 @@ You will receive input strictly in this JSON format:
      (but output one JSON array covering all).
 
 3. **Determine Jellyfin Naming Structure**:
-   - Base folder: `{category.category}/{category.language}`
+   - Base folder: `{category.category.name}/{category.language}`
    - Series folder: `Series Name (Year)` (using Chinese name if available, else English; Year from
      step 2).
    - Season subfolder: `Season XX` (XX = season number, zero-padded, e.g., Season 01).
@@ -92,7 +86,7 @@ represents one file:
     {{
         "file": "/original/path/to/file.ext",
         "action": "move" | "skip",
-        "target": "{category.category}/{category.language}/Series Name (Year)/Season XX/Series Name (Year) SXXEYY.ext"
+        "target": "{category.category.name}/{category.language}/Series Name (Year)/Season XX/Series Name (Year) SXXEYY.ext"
     }},
     ...
 ]
@@ -106,14 +100,14 @@ Example Output:
 ```
 [
     {{
-        "file": "/downloads/Show.S01E01.mkv",
+        "file": "/downloads/Game.of.Thrones.S01E01.mkv",
         "action": "move",
-        "target": "{category.category}/{category.language}/权力的游戏 (2011)/Season 01/权力的游戏 (2011) S01E01.mkv"
+        "target": "{category.category.name}/{category.language}/权力的游戏 (2011)/Season 01/权力的游戏 (2011) S01E01.mkv"
     }},
     {{
-        "file": "/downloads/Show.S01E01.zh.srt",
+        "file": "/downloads/Game.of.Thrones.S01E01.zh.srt",
         "action": "move",
-        "target": "{category.category}/{category.language}/权力的游戏 (2011)/Season 01/权力的游戏 (2011) S01E01.简体中文.chi.srt"
+        "target": "{category.category.name}/{category.language}/权力的游戏 (2011)/Season 01/权力的游戏 (2011) S01E01.简体中文.chi.srt"
     }},
     {{
         "file": "/downloads/image.jpg",
@@ -125,14 +119,32 @@ Example Output:
 """
 
 
-def agent() -> Agent:
+def agent(mcp: MCPServer, category: CategoryResponse) -> Agent:
   return Agent(
-    name="categorizer",
-    model=LiteLlm(model=llm_model),
-    description="This agent create plan to organize the downloaded tv series",
-    instruction=_get_instruction,
-    output_schema=PlanResponse,
-    disallow_transfer_to_peers=True,  # incompatible with output_schema
-    disallow_transfer_to_parent=True,  # incompatible with output_schema
-    tools=[mcp_search_tool()],
+    name="tv_series_mover",
+    model=model(),
+    instructions=_get_instruction(category),
+    output_type=ToolOutput(PlanResponse),
+    toolsets=[mcp],
+    prepare_tools=allowedTools(["web_search", "search_tv_shows"]),
   )
+
+
+if __name__ == "__main__":
+  if model():
+    setupLogfire()
+
+    req = PlanRequest(
+      files=[
+        "My.Date.with.a.Vampire.Season.02.2000/My.Date.with.a.Vampire.Season.02.2000.EP1.mkv",
+        "My.Date.with.a.Vampire.Season.02.2000/My.Date.with.a.Vampire.Season.02.2000.EP2.mkv",
+        "My.Date.with.a.Vampire.Season.02.2000/My.Date.with.a.Vampire.Season.02.2000.EP1.en.ass",
+        "My.Date.with.a.Vampire.Season.02.2000/cover.jpg",
+        "My.Date.with.a.Vampire.Season.02.2000/behind the scenes.mp4.part",
+      ],
+    )
+
+    a = agent(metadataMcp(), CategoryResponse(category=Category.tv_series, language="Chinese"))
+    res = a.run_sync(req.model_dump_json())
+    print(f"output: ${res.output}")
+    print(f"usage: ${res.usage()}")

@@ -1,5 +1,8 @@
 run:
-    test -f .local/env.sh && source .local/env.sh && uv run fastapi dev
+    test -f .env && uv run fastapi dev
+
+run-agent name:
+    test -f .env && uv run --env-file .env -m app.agents."{{name}}"
 
 format:
     uvx ruff format
@@ -10,5 +13,5 @@ lint:
 test:
     uv run pytest
 
-adkweb:
-    test -f .local/env.sh && source .local/env.sh && cd app && uv run adk web --port 8001
+alltest:
+    test -f .env && uv run --env-file .env pytest
