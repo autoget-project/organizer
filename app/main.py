@@ -1,11 +1,21 @@
 import os
 import sys
 from contextlib import asynccontextmanager
+from logging import log
 from typing import List
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
-from .agents.models import Category, ExecuteRequest, PlanAction, PlanRequest, PlanResponse
+from .agents.models import (
+  Category,
+  ExecuteRequest,
+  ExecuteResponse,
+  PlanAction,
+  PlanFailed,
+  PlanRequest,
+  PlanResponse,
+)
 
 
 def check_env_vars(name: str):
@@ -64,7 +74,27 @@ async def create_plan(request: PlanRequest):
   return PlanResponse(plan=fake_plan)
 
 
-@app.post("/v1/execute")
+@app.post("/v1/execute", response_model=ExecuteResponse)
 async def execute_plan(request: ExecuteRequest):
-  # For now, just return a 200 OK status
-  return {"message": "Plan executed successfully (fake response)"}
+  resp = ExecuteResponse(failed_move=[])
+
+  for action in request.plan:
+    if action.action == "move":
+      # check original file exists
+      original_file = os.path.join(os.getenv("DOWNLOAD_COMPLETED_DIR"), action.file)
+      if not os.path.exists(original_file):
+        resp.failed_move.append(
+          PlanFailed(
+            file=action.file, action=action.action, target=action.target, reason="file not found"
+          )
+        )
+        continue
+      # check target folder exists
+      target_file = os.path.join(os.getenv("TARGET_DIR"), action.target)
+      os.makedirs(os.path.dirname(target_file), exist_ok=True)
+      # move file
+      os.rename(original_file, target_file)
+
+  if resp.failed_move:
+    return JSONResponse(content=resp.model_dump(), status_code=400)
+  return resp
