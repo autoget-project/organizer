@@ -1,7 +1,6 @@
 import os
 import sys
 from contextlib import asynccontextmanager
-from logging import log
 from typing import List
 
 from fastapi import FastAPI
@@ -11,11 +10,11 @@ from .agents.models import (
   Category,
   ExecuteRequest,
   ExecuteResponse,
-  PlanAction,
   PlanFailed,
   PlanRequest,
   PlanResponse,
 )
+from .agents.runner import create_plan as ai_create_plan
 
 
 def check_env_vars(name: str):
@@ -62,16 +61,7 @@ app = FastAPI(lifespan=lifespan)
 
 @app.post("/v1/plan", response_model=PlanResponse)
 async def create_plan(request: PlanRequest):
-  # For now, return a fake response as the agent caller is not ready
-  fake_plan = []
-  for file_path in request.files:
-    if "document" in file_path.lower():
-      fake_plan.append(
-        PlanAction(file=file_path, action="move", target=f"documents/{os.path.basename(file_path)}")
-      )
-    else:
-      fake_plan.append(PlanAction(file=file_path, action="ignore"))
-  return PlanResponse(plan=fake_plan)
+  return await ai_create_plan(request)
 
 
 @app.post("/v1/execute", response_model=ExecuteResponse)
