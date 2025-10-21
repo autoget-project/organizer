@@ -17,18 +17,7 @@ class Category(Enum):
   music_video = auto()
 
 
-category_list: List[str] = [
-  Category.movie.name,
-  Category.tv_series.name,
-  Category.anim_tv_series.name,
-  Category.anim_movie.name,
-  Category.photobook.name,
-  Category.porn.name,
-  Category.audio_book.name,
-  Category.book.name,
-  Category.music.name,
-  Category.music_video.name,
-]
+category_list: List[str] = [name for name, _ in Category.__members__.items()]
 
 simple_move_categories = [
   Category.photobook,
@@ -59,3 +48,11 @@ class PlanResponse(BaseModel):
 
 class ExecuteRequest(BaseModel):
   plan: List[PlanAction]
+
+
+class PlanFailed(PlanAction):
+  reason: str
+
+
+class ExecuteResponse(BaseModel):
+  failed_move: List[PlanFailed]
