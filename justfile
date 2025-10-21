@@ -1,5 +1,5 @@
 run:
-  test -f .env && uv run fastapi dev
+  test -f .env && uv run --env-file .env fastapi dev
 
 run-agent name:
   test -f .env && uv run --env-file .env -m app.agents."{{name}}"

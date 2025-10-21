@@ -28,6 +28,14 @@ simple_move_categories = [
 ]
 
 
+class PornCategory(Enum):
+  jav = auto()
+  porn = auto()
+  jav_vr = auto()
+  porn_vr = auto()
+  chinese = auto()
+
+
 class PlanRequest(BaseModel):
   files: List[str]
   metadata: dict[str, str] = None

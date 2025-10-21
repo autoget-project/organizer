@@ -13,6 +13,7 @@ from .agents.models import (
   PlanFailed,
   PlanRequest,
   PlanResponse,
+  PornCategory,
 )
 from .agents.runner import create_plan as ai_create_plan
 
@@ -40,17 +41,24 @@ def check_dir(path: str):
     sys.exit(1)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-  # Startup
+def startup_check():
   check_any_env_vars(["XAI_API_KEY", "LM_STUDIO_API_BASE"])
   check_env_vars("MODEL")
-  check_env_vars("SEARCH_MCP")
+  check_env_vars("METADATA_MCP")
   check_env_vars("DOWNLOAD_COMPLETED_DIR")
   check_env_vars("TARGET_DIR")
 
   for cat in Category:
     check_dir(os.path.join(os.getenv("TARGET_DIR"), cat.name))
+
+  for pcat in PornCategory:
+    check_dir(os.path.join(os.getenv("TARGET_DIR"), Category.porn.name, pcat.name))
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+  # Startup
+  startup_check()
 
   yield
   # Shutdown
