@@ -1,6 +1,6 @@
 from typing import List
 
-from ..models import PlanResponse, PlanAction, Category
+from ..models import Category, PlanAction, PlanResponse
 
 
 def simple_move_plan(category: Category, files: List[str]) -> PlanResponse:

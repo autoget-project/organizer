@@ -1,8 +1,9 @@
 import pytest
-from .models import PlanRequest, PlanResponse, PlanAction, Category
-from .categorizer import CategoryResponse
-from .movie_mover import agent
+
 from .ai import metadataMcp, model, setupLogfire
+from .categorizer import CategoryResponse
+from .models import Category, PlanAction, PlanRequest, PlanResponse
+from .movie_mover import agent
 
 
 @pytest.mark.skipif(model() is None, reason="No env var for ai model")

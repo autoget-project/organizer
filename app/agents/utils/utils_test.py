@@ -1,5 +1,5 @@
-from .utils import simple_move_plan
 from ..models import Category, PlanAction, PlanResponse
+from .utils import simple_move_plan
 
 
 def test_simple_move_plan_single_file():

@@ -1,9 +1,10 @@
+from utils.utils import simple_move_plan
+
+from .ai import metadataMcp
 from .categorizer import agent as categorizer_agent
+from .models import Category, PlanRequest, PlanResponse, simple_move_categories
 from .movie_mover import agent as movie_mover_agent
 from .tv_series_mover import agent as tv_series_mover_agent
-from .models import Category, PlanRequest, PlanResponse, simple_move_categories
-from .ai import metadataMcp
-from utils.utils import simple_move_plan
 
 
 async def create_plan(req: PlanRequest) -> PlanResponse:

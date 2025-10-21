@@ -1,11 +1,12 @@
 import os
 from typing import Union
+
 from pydantic_ai import RunContext, ToolDefinition
-from pydantic_ai.tools import ToolsPrepareFunc
-from pydantic_ai.mcp import MCPServerStreamableHTTP, MCPServer
+from pydantic_ai.mcp import MCPServer, MCPServerStreamableHTTP
 from pydantic_ai.models import Model
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.tools import ToolsPrepareFunc
 
 metadata_mcp: str = os.getenv("METADATA_MCP")
 

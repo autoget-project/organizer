@@ -2,9 +2,10 @@ import os
 import sys
 from contextlib import asynccontextmanager
 from typing import List
+
 from fastapi import FastAPI
 
-from .agents.models import Category, PlanRequest, PlanAction, PlanResponse, ExecuteRequest
+from .agents.models import Category, ExecuteRequest, PlanAction, PlanRequest, PlanResponse
 
 
 def check_env_vars(name: str):

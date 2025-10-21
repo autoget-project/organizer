@@ -1,8 +1,9 @@
+from pydantic import BaseModel, Field
 from pydantic_ai import Agent, ToolOutput
 from pydantic_ai.mcp import MCPServer
-from pydantic import BaseModel, Field
-from .models import Category, category_list, PlanRequest
-from .ai import metadataMcp, model, allowedTools, setupLogfire
+
+from .ai import allowedTools, metadataMcp, model, setupLogfire
+from .models import Category, PlanRequest, category_list
 
 _INSTRUCTION: str = (
   """\

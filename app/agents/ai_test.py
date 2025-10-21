@@ -1,9 +1,11 @@
-import os
-import pytest
-from pydantic_ai import Agent, ToolOutput
-from pydantic import BaseModel
-from .ai import metadataMcp, model, allowedTools, setupLogfire
 import asyncio
+import os
+
+import pytest
+from pydantic import BaseModel
+from pydantic_ai import Agent, ToolOutput
+
+from .ai import allowedTools, metadataMcp, model, setupLogfire
 
 
 @pytest.mark.skipif(
