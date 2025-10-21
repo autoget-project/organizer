@@ -1,7 +1,7 @@
 from enum import Enum, auto
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Category(Enum):
@@ -45,7 +45,7 @@ class PlanRequest(BaseModel):
 
 
 class PlanAction(BaseModel):
-  file: str
+  file: str = Field(description="Exact original path")
   action: Literal["move", "skip"]
   target: Optional[str] = None
 

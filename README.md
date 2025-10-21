@@ -88,7 +88,7 @@ To set up and run the File Organizer, follow these steps:
 
 To start the FastAPI service for dev, run the following command:
 
-```bash
+```sh
 uv run fastapi dev
 ```
 
@@ -98,14 +98,14 @@ The service will be accessible at `http://localhost:8000`. You can then use the 
 
 ### Test single agent
 
-```
+```sh
 just run-agent <agent_name>
 ```
 
 You can check `app/agents` for agent name.
 
-Or you can run test:
+Or you can run their tests:
 
-```
-uv run --env-file=.env pytest app/agents/xxx_test.py
+```sh
+just test-agent <agent_name>
 ```

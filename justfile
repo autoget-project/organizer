@@ -4,6 +4,9 @@ run:
 run-agent name:
   test -f .env && uv run --env-file .env -m app.agents."{{name}}"
 
+test-agent name:
+  test -f .env && uv run --env-file .env pytest "app/agents/{{name}}_test.py" -vv
+
 format:
   uvx ruff check --select I --fix
   uvx ruff format

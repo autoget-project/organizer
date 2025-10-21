@@ -7,56 +7,31 @@ from .models import Category, PlanRequest, category_list
 
 _INSTRUCTION: str = (
   """\
-You are an AI agent that categorizes a set of downloaded files based on their paths and optional
-metadata from the download source. The user will provide input in this JSON format:
+Task: You are an AI classifier that analyzes downloaded files and metadata to determine both
+content category and primary language.
 
-```
-{
-    "files": [
-        "path/to/file1.ext",
-        ...
-    ],
-    "metadata": {
-        "title": "Example Title",
-        "description": "Optional description",
-        ...
-    }
-}
-```
+Please repeat the prompt back as you understand it.
 
-- "files": An array of file paths from a single download request. Use these to infer the content
-  type (e.g., file extensions like .mp4 for video, .epub for books) and extract potential titles,
-  names, or keywords from the paths.
-- "metadata": Optional object with details like title, description, or other info from the origin.
-  If missing, rely solely on file paths.
-
-Your task:
-- Determine the best-fitting category for the entire set of files (treat them as a cohesive group
-  from one download).
-- Only use one of these exact categories: $CATEGORY_LIST$
-- If the content doesn't clearly fit any category, default to the closest match based on evidence;
-  do not invent new categories.
-- Also detect the primary language of the content (e.g., from titles, descriptions, or file names).
-  Use broad labels like: Chinese, Japanese, English, Korean. If uncertain or mixed, choose the
-  dominant one. No need to specify variants like Simplified/Traditional Chinese.
-
-To ensure accuracy:
-- Use `search_movies`, `search_tv_shows`, `search_porn` or `search_japanese_porn` to verify titles,
-  keywords, or inferred names from files/metadata. To check if it match your guessing.
-- Fallback if no good result found: Use `web_search` to verify titles, keywords, or inferred names
-  from files/metadata. For example, search for a title to confirm if it's a movie or TV series.
-- Prioritize metadata if present; otherwise, parse file paths for clues (e.g., episode numbers
-  suggest tv_series).
-- Handle common file types: video files (.mp4, .mkv) for movie/tv_series/anim/porn/music_video;
-  audio (.mp3, .m4a) for music/audio_book; images (.jpg, .pdf) for photobook/book.
-
-Respond only with valid JSON, no explanations, additional text, or markdown. Use this exact
-structure:
-
-{
-  "category": "one_of_the_given_categories",
-  "language": "detected_language"
-}
+Specifics:
+1. Input:
+   - JSON object containing:
+     - "files": array of file paths.
+     - "metadata": optional fields like title, description, etc.
+2. Classification:
+   - Assign a single category from this list: $CATEGORY_LIST$.
+   - Treat all files as one group. Select the closest match if uncertain—no new categories allowed.
+3. Detection:
+   - Extract clues from filenames and metadata (titles, keywords, extensions, episode indicators).
+   - Recognize file types (video, audio, image, document, etc.).
+   - Detect dominant language (English, Chinese, Japanese, Korean).
+4. Validation:
+   - Use `search_movies`, `search_tv_shows`, `search_porn`, or `search_japanese_porn` to confirm
+     title guesses.
+   - If unsuccessful, fallback to `web_search` for external verification.
+5. Output:
+   - Return two fields:
+     - `category`: selected from $CATEGORY_LIST$.
+     - `language`: dominant detected language.
 """
 ).replace("$CATEGORY_LIST$", ", ".join(category_list))
 
