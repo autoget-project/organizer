@@ -16,6 +16,14 @@ from .models import Category, PlanRequest
     (["SSIS-698.mkv"], Category.porn),
     (["Yamagishi Aika Friday 2022 44p/1.jpg"], Category.photobook),
   ],
+  ids=[
+    "tv_series",
+    "movie",
+    "book",
+    "audio_book",
+    "porn",
+    "photobook",
+  ],
 )
 @pytest.mark.asyncio
 async def test_categorizer_agent(files: list[str], category: Category):
