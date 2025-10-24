@@ -5,12 +5,15 @@ from pydantic import BaseModel, Field
 
 
 class Category(Enum):
+  unknown = auto()
   movie = auto()
   tv_series = auto()
   anim_tv_series = auto()
   anim_movie = auto()
   photobook = auto()
   porn = auto()
+  # Japanese and Taiwan Porn are use bango (番号) system for naming.
+  bango_porn = auto()
   audio_book = auto()
   book = auto()
   music = auto()
@@ -64,3 +67,9 @@ class PlanFailed(PlanAction):
 
 class ExecuteResponse(BaseModel):
   failed_move: List[PlanFailed]
+
+
+class SimpleAgentResponseResult(Enum):
+  yes = auto()
+  no = auto()
+  maybe = auto()

@@ -4,8 +4,8 @@ from pydantic_ai import Agent, ToolOutput
 from pydantic_ai.mcp import MCPServer
 
 from .ai import allowedTools, metadataMcp, model, setupLogfire
-from .categorizer import CategoryResponse
 from .models import Category, PlanRequest, PlanResponse
+from .oldcategorizer import CategoryResponse
 
 
 def _get_instruction(category: CategoryResponse) -> str:

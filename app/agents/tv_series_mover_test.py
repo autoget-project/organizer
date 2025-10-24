@@ -1,8 +1,8 @@
 import pytest
 
 from .ai import metadataMcp, model, setupLogfire
-from .categorizer import CategoryResponse
 from .models import Category, PlanAction, PlanRequest, PlanResponse
+from .oldcategorizer import CategoryResponse
 from .tv_series_mover import agent
 
 

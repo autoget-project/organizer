@@ -1,8 +1,8 @@
 import pytest
 
 from .ai import metadataMcp, model, setupLogfire
-from .categorizer import agent
 from .models import Category, PlanRequest
+from .oldcategorizer import agent
 
 
 @pytest.mark.skipif(model() is None, reason="No env var for ai model")
