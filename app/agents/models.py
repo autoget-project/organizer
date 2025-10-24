@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -54,7 +54,8 @@ class PlanAction(BaseModel):
 
 
 class PlanResponse(BaseModel):
-  plan: List[PlanAction]
+  plan: List[PlanAction] = None
+  error: str | None = None
 
 
 class ExecuteRequest(BaseModel):
