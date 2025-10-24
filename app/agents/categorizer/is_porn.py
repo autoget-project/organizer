@@ -10,8 +10,6 @@ Task: You are an AI agent specialized in determining if a group of files represe
 
 Please repeat the prompt back as you understand it.
 
-Specifics (each bullet contains specifics about the task):
-
 1. Input:
    - A single JSON object containing:
      - "files": array of file path strings (each may include folders and filenames)

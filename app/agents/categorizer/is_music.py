@@ -10,51 +10,27 @@ Task: You are an AI agent specialized in determining if a group of files represe
 
 Please repeat the prompt back as you understand it.
 
-Specifics (each bullet contains specifics about the task):
-
 1. Input:
    - A single JSON object containing:
      - "files": array of file path strings (each may include folders and filenames)
      - "metadata" (optional): object with fields like "title", "description", "tags", etc.
    - Treat all files as a single group to determine if they represent music.
-
-2. Music detection criteria:
-   - File types: Look for .mp3, .m4a, .flac, .wav, .aac, .ogg, .wma, .opus files
-   - Filename patterns: 
-     - Artist - Title format (e.g., "The Beatles - Hey Jude.mp3")
-     - Track numbers (e.g., "01 - Song Title.mp3")
-     - Album/Artist/Track structure in directories
-     - Music-related keywords: "song", "track", "album", "single", "remix", "live"
-   - Directory structure:
-     - Album folders with artist names (e.g., "Artist Name/Album Name/")
-     - Music folders like "Music", "Albums", "Singles", "Compilations"
-     - Year-based organization (e.g., "2023", "2020s")
-   - Metadata indicators:
-     - "artist", "album", "track", "genre", "year" in metadata fields
-     - Music-related tags like "rock", "pop", "jazz", "classical", "electronic"
-     - Bitrate, duration, or other audio-specific metadata
-
+2. Detection rules & priorities:
+   - Supported audio extensions: .mp3, .flac, .wav, .aac, .m4a, .ogg, .wma, .alac, .aiff.
+   - Prefer evidence in this order: metadata > filename patterns > folder names > file extensions.
+   - Filename patterns to identify songs:
+       • "Artist - Title" or "Artist_Title"
+       • Music-related keywords: "single", "track", "song", "remix", "instrumental", "OST", "soundtrack"
+       • Album or artist folder names (e.g., `/Music/Drake/`, `/Albums/Taylor Swift/`)
+       • Bitrate or quality tags like "320kbps", "FLAC", "HQ", "Hi-Res"
+   - Treat repeated patterns across multiple files (e.g., several .mp3 files in one artist folder) as strong music evidence.
+   - Use `web_search` to verify artist or track names only when ambiguity remains.
 3. Non-music exclusions:
-   - Podcast files with "podcast", "episode", "show" indicators
-   - Audiobooks (should be categorized as audio_book)
-   - Sound effects or samples (short duration, generic names)
-   - Voice recordings or memos
-   - Music videos (video files with music content - these are music_video category)
-
-4. Language detection criteria:
-   - Japanese: Hiragana/Katakana/Kanji characters in filenames or metadata
-   - Chinese: Chinese characters (简体/繁體) in filenames or metadata
-   - Korean: Hangul characters in filenames or metadata
-   - English: Latin script with English words; absence of East Asian scripts
-   - Other: if none apply clearly
-
-5. Analysis approach:
-   - Analyze the entire file set as one logical unit
-   - Prefer metadata over filename cues
-   - Consider directory structure and dominant patterns
-   - Use web_search to verify uncertain cases - search for artists, albums, or songs
-   - When uncertain, select the closest matching response based on strongest evidence
-   - Provide brief reasoning for your decision
+   - Exclude podcasts, audiobooks, interviews, lectures, voice memos, ringtones, and sound effects unless clear music indicators are present.
+   - If folder or filename contains words like "podcast", "audiobook", "lecture", "interview", or "sound effect", classify as non-music.
+4. Language detection:
+   - Use the song's metadata (language field or title text) to infer language.
+   - If missing, infer from artist or song title language; when ambiguous, use brief web lookup for artist/track language.
 """
 
 

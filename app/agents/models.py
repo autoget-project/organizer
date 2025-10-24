@@ -74,3 +74,10 @@ class SimpleAgentResponseResult(Enum):
   yes = auto()
   no = auto()
   maybe = auto()
+
+class Language(Enum):
+  chinese = auto()
+  english = auto()
+  japanese = auto()
+  korean = auto()
+  others = auto()

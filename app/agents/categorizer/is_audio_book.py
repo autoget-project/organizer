@@ -6,73 +6,30 @@ from ..models import PlanRequest
 from .models import IsAudioBookResponse
 
 _INSTRUCTION = """\
-Task: You are an AI agent specialized in determining if a group of files represents audiobook or radio drama content (有声书, 广播剧) based solely on filenames, directory paths, and available metadata.
+Task: You are an AI agent that determines whether a provided group of files (filenames + directory paths + optional metadata) represents an Audiobook (有声书), a Radio Drama (广播剧 / audio drama), or Other (music/podcast/lecture/etc.). Use web_search as an essential verification step for every classification. Return a JSON object with fields: "label", "confidence", and "reason".
 
 Please repeat the prompt back as you understand it.
 
 Specifics (each bullet contains specifics about the task):
-
-1. Input:
-   - A single JSON object containing:
-     - "files": array of file path strings (each may include folders and filenames)
-     - "metadata" (optional): object with fields like "title", "description", "tags", etc.
-   - Treat all files as a single group to determine if they represent audiobook content.
-
-2. Audiobook detection criteria:
-   - File types: Look for .mp3, .m4a, .flac, .wav, .aac, .ogg, .wma, .opus audio files
-   - Filename patterns:
-     - Chapter/track numbering (e.g., "Chapter 01", "Chapter 1", "01 - Chapter Title")
-     - Book title with author names (e.g., "Book Title - Author Name")
-     - Part/section numbering (e.g., "Part 1", "Section 01")
-     - Audiobook-specific keywords: "audiobook", "audio book", "narrated", "unabridged", "abridged"
-   - Directory structure:
-     - Book folders with author names (e.g., "Author Name/Book Title/")
-     - Audiobook folders like "Audiobooks", "Audio Books", "有声书"
-     - Series organization (e.g., "Series Name/Book 1 Title/")
-   - Metadata indicators:
-     - "author", "narrator", "book", "audiobook" in metadata fields
-     - Book-related tags like "fiction", "non-fiction", "biography", "mystery"
-     - Duration information (typical audiobook length)
-     - Publisher information
-
-3. Radio drama detection criteria (广播剧):
-   - Filename patterns:
-     - Episode numbering (e.g., "Episode 01", "Ep 01", "第01集")
-     - Radio drama keywords: "radio drama", "广播剧", "audio drama", "drama"
-     - Cast/character names in filenames
-     - Scene/act numbering
-   - Directory structure:
-     - Radio drama folders with series names
-     -广播剧 folders organization
-     - Season/episode organization
-   - Metadata indicators:
-     - "radio drama", "广播剧", "audio drama" in metadata
-     - Cast information, director, sound engineer
-     - Radio station or production company information
-
-4. Chinese audiobook/radio drama specific patterns:
-   - Chinese characters in filenames and metadata
-   - Chinese audiobook naming: "书名 - 作者", "有声书 - 书名"
-   - Chinese radio drama: "广播剧 - 剧名", "第X集 - 剧名"
-   - Narrator/voice actor information in Chinese
-   - Publisher information in Chinese
-
-5. Non-audiobook exclusions:
-   - Music albums or songs (should be categorized as music)
-   - Podcasts (different structure, usually topical)
-   - Regular audiobooks (should be categorized as book)
-   - Sound effects or samples
-   - Voice recordings or memos
-   - Educational lectures (unless part of an audiobook)
-
-6. Analysis approach:
-   - Analyze the entire file set as one logical unit
-   - Prefer metadata over filename cues
-   - Consider directory structure and dominant patterns
-   - Use web_search to verify uncertain cases - search for book titles, authors, radio dramas
-   - Look for consistent chapter/episode numbering across files
-   - When uncertain, select the closest matching response based on strongest evidence
-   - Provide brief reasoning for your decision
+1. Input: A single JSON object:
+   - "files": array of file path strings (each may include folders and filenames)
+   - "metadata" (optional): object with fields like "title", "description", "tags", "duration", "author", "narrator", "cast", "publisher", etc.
+2. Analysis order: metadata → filenames → directory structure → web_search (required verification).
+3. Recognized audio file types: .mp3, .m4a, .flac, .wav, .aac, .ogg, .wma, .opus.
+4. Audiobook cues:
+   - Filenames: chapter/track numbers, "Book Title - Author", keywords ("audiobook", "有声书", "narrated").
+   - Metadata: author/narrator/book fields, book-related tags.
+   - Directory: "Audiobooks", "Audio Books", "有声书", "Author/Book Title/".
+5. Radio drama cues:
+   - Filenames: episode numbers ("Ep01", "第01集"), keywords ("radio drama", "audio drama", "广播剧").
+   - Metadata: cast, director, studio, radio station, or production company fields.
+   - Directory: "广播剧" folders or season/episode subfolders.
+6. Chinese-specific cues: naming patterns ("书名 - 作者", "第X集 - 剧名"), Chinese keywords, narrator/voice actor fields in Chinese.
+7. Exclusions: music albums, podcasts, sound effects, memos, lectures (unless tagged as books).
+8. Required web_search behavior:
+   - Always perform a search using key extracted entities (e.g., title, author, or drama name).
+   - Integrate web_search results as part of reasoning: confirm or correct classification.
+   - If search results are ambiguous, note this in "reason".
 """
 
 

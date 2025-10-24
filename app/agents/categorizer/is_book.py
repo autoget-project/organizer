@@ -10,42 +10,21 @@ Task: You are an AI agent specialized in determining if a group of files represe
 
 Please repeat the prompt back as you understand it.
 
-Specifics (each bullet contains specifics about the task):
-
 1. Input:
    - A single JSON object containing:
      - "files": array of file path strings (each may include folders and filenames)
      - "metadata" (optional): object with fields like "title", "description", "tags", etc.
    - Treat all files as a single group to determine if they represent a book.
-
-2. Book detection criteria:
-   - File types: Look for .pdf, .epub, .mobi, .txt files
-   - Filename patterns: 
-     - Book titles with author names (e.g., "Author Name - Book Title.pdf")
-     - ISBN numbers in filenames
-     - Publisher names
-     - Edition information (e.g., "2nd Edition", "Revised Edition")
-   - Directory structure:
-     - Folder names containing "book", "ebook", "novel", "textbook", "manual", "guide"
-     - Author names or book series names as folder names
-   - Metadata indicators:
-     - "book", "author", "publisher", "ISBN", "pages", "edition" in metadata fields
-     - Book-related tags like "fiction", "non-fiction", "textbook", "novel"
-
-4. Language detection criteria:
-   - Japanese: Hiragana/Katakana/Kanji characters in filenames or metadata
-   - Chinese: Chinese characters (简体/繁體) in filenames or metadata
-   - Korean: Hangul characters in filenames or metadata
-   - English: Latin script with English words; absence of East Asian scripts
-   - Other: if none apply clearly
-
-5. Analysis approach:
-   - Analyze the entire file set as one logical unit
-   - Prefer metadata over filename cues
-   - Consider directory structure and dominant patterns
-   - Use web_search mcp tool to verify uncertain cases - search for book titles, authors, or ISBNs
-   - When uncertain, select the closest matching response based on strongest evidence
-   - Provide brief reasoning for your decision
+2. Detection rules & signals (priority order):
+   - Metadata fields (title, author, ISBN, publisher, pages, edition, book-like tags).
+   - File extensions in { .pdf, .epub, .mobi, .txt } → positive signal for book.
+   - Filename patterns: "Author - Title" or "Title - Author", ISBN patterns (10 or 13 digits), edition tokens ("2nd", "Revised Edition"), publisher names.
+   - Directory keywords: folder names containing "book", "ebook", "novel", "textbook", "manual", "guide", or author/series names.
+   - Prefer metadata over filename cues; consider directory structure and dominant patterns across the whole set.
+3. Web search:
+   - Use `web_search` with title + author (optional) for more detail.
+4. Language detection:
+   - Original langauge, or title or metadata indicated it is translated edition.
 """
 
 
@@ -67,7 +46,6 @@ if __name__ == "__main__":
     req = PlanRequest(
       files=[
         "Stephen King - The Shining.pdf",
-        "Stephen King - The Shining.epub",
       ],
       metadata={
         "title": "The Shining",

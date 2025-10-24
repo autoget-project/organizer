@@ -2,7 +2,7 @@ from typing import Dict
 
 from pydantic import BaseModel, Field
 
-from ..models import Category, PlanRequest, SimpleAgentResponseResult
+from ..models import Category, Language, PlanRequest, SimpleAgentResponseResult
 
 
 class FilenameBasedPreCatergoizerResult(BaseModel):
@@ -14,7 +14,7 @@ class FilenameBasedPreCatergoizerResult(BaseModel):
 
 class IsAudioBookResponse(BaseModel):
   is_audio_book: SimpleAgentResponseResult
-  reason: str
+  reason: str = Field(description="provide brief reasoning for your decision")
 
 
 class IsBangoPornResponse(BaseModel):
@@ -24,8 +24,9 @@ class IsBangoPornResponse(BaseModel):
   from_fc2: SimpleAgentResponseResult
   bango: str | None
   actors: list[str]
-  language: str
-  reason: str
+  language: Language
+  reason: str = Field(description="provide brief reasoning for your decision")
+
 
 
 class GroupIsBangoPornResponse(BaseModel):
@@ -35,8 +36,9 @@ class GroupIsBangoPornResponse(BaseModel):
 
 class IsBookResponse(BaseModel):
   is_book: SimpleAgentResponseResult
-  language: str
-  reason: str
+  language: Language
+  reason: str = Field(description="provide brief reasoning for your decision")
+
 
 
 class IsMovieResponse(BaseModel):
@@ -45,25 +47,29 @@ class IsMovieResponse(BaseModel):
   movie_name: str | None
   movie_name_in_chinese: str | None
   release_year: int | None
-  language: str
-  reason: str
+  language: Language
+  reason: str = Field(description="provide brief reasoning for your decision")
+
 
 
 class IsMusicVideoResponse(BaseModel):
   is_music_video: SimpleAgentResponseResult
-  language: str
-  reason: str
+  language: Language
+  reason: str = Field(description="provide brief reasoning for your decision")
+
 
 
 class IsMusicResponse(BaseModel):
   is_music: SimpleAgentResponseResult
-  language: str
-  reason: str
+  language: Language
+  reason: str = Field(description="provide brief reasoning for your decision")
+
 
 
 class IsPhotobookResponse(BaseModel):
   is_photobook: SimpleAgentResponseResult
-  reason: str
+  reason: str = Field(description="provide brief reasoning for your decision")
+
 
 
 class IsPornResponse(BaseModel):
@@ -72,8 +78,9 @@ class IsPornResponse(BaseModel):
   from_onlyfans: SimpleAgentResponseResult
   name: str | None
   actors: list[str]
-  language: str
-  reason: str
+  language: Language
+  reason: str = Field(description="provide brief reasoning for your decision")
+
 
 
 class IsTVSeriesResponse(BaseModel):
@@ -82,13 +89,15 @@ class IsTVSeriesResponse(BaseModel):
   tv_series_name: str | None
   tv_series_name_in_chinese: str | None
   the_first_season_release_year: int | None
-  language: str
-  reason: str
+  language: Language
+  reason: str = Field(description="provide brief reasoning for your decision")
+
 
 
 class DecisionMakerResponse(BaseModel):
   category: Category
-  reason: str
+  reason: str = Field(description="provide brief reasoning for your decision")
+
 
 
 class PlanRequestWithCategory(BaseModel):

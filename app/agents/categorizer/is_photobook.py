@@ -10,56 +10,20 @@ Task: You are an AI agent specialized in determining if a group of files represe
 
 Please repeat the prompt back as you understand it.
 
-Specifics (each bullet contains specifics about the task):
-
 1. Input:
    - A single JSON object containing:
      - "files": array of file path strings (each may include folders and filenames)
      - "metadata" (optional): object with fields like "title", "description", "tags", etc.
    - Treat all files as a single group to determine if they represent a photobook.
 
-2. Photobook detection criteria:
-   - File types: Look for .jpg, .jpeg, .png, .gif, .bmp, .tiff, .webp image files
-   - May include video files as bonus/gift content: .mp4, .mkv, .avi, .mov files
-   - Filename patterns: 
-     - Japanese photobook terms: "写真集", "shashinshuu", "グラビア" (gravure)
-     - Photobook keywords: "photobook", "photo book", "photoset", "gallery", "collection"
-     - Model/idol names followed by photobook indicators
-     - Page numbers in filenames (e.g., "001.jpg", "page_01.jpg")
-     - Sequential numbering indicating scanned pages
-   - Directory structure:
-     - Folder names containing "写真集", "photobook", "photoset", "gallery", "collection"
-     - Model or idol names as folder names
-     - Publisher or magazine names (e.g., "Weekly Playboy", "Young Jump")
-     - Date-based organization (e.g., "2023", "2023-06")
-   - Metadata indicators:
-     - "photobook", "model", "idol", "gravure", "写真集" in metadata fields
-     - Photographer or publisher information
-     - Publication date or volume information
-
-3. Special considerations for photobooks with videos:
-   - Video files may be included as bonus content or making-of videos
-   - Videos typically have short duration and are supplementary to the main image content
-   - Video filenames may include "making", "behind", "bonus", "gift", "特典"
-   - The presence of videos with a dominant set of images still indicates a photobook
-
-4. Non-photobook exclusions:
-   - Regular photo albums or family photos (no professional/model indicators)
-   - Art galleries or digital art collections (unless specifically photobook-style)
-   - Magazine scans (unless specifically photobook issues)
-   - Porn content (should be categorized as porn or bango_porn)
-   - Movie or TV show screenshots
-   - Stock photo collections
-
-5. Analysis approach:
-   - Analyze the entire file set as one logical unit
-   - Prefer metadata over filename cues
-   - Consider directory structure and dominant patterns
-   - Look for sequential page numbering typical of scanned photobooks
-   - Allow for supplementary video content alongside main image content
-   - Use web_search to verify uncertain cases - search for model names, photobook titles, or publishers
-   - When uncertain, select the closest matching response based on strongest evidence
-   - Provide brief reasoning for your decision
+2. Photobook detection rules & priorities (highest→lowest):
+   - Metadata indicators (highest priority): any metadata field containing keywords: photobook, photoset, model, idol, 写真集, gravure, photographer, publisher, volume, issue, etc.
+   - Filename & folder indicators: dominant presence of image file types (.jpg, .jpeg, .png, .webp, .tiff, .bmp, .gif). Look for keywords in filenames or folder names: 写真集, shashinshuu, グラビア, photobook, "photo book", photoset, gallery, collection, publisher/magazine names, model/celebrity names.
+   - Sequential/page patterns: detect file pattern like `page[_\\-]?[0-9]+`, or repeated numeric prefixes (e.g., 001.jpg, 002.jpg). Sequential numbering strongly suggests scanned photobook pages.
+   - Video allowance: video files (.mp4, .mkv, .avi, .mov) are permitted as supplementary content if they are a minority and filenames include making/behind/bonus/特典; their presence does not disqualify a photobook.
+   - Exclusions (negative indicators): tags or filenames indicating screenshot, stock, generic art (unless explicitly photobook-style), or explicit porn (label as "porn" or "bango_porn" instead).
+   - maybe use `web_search` with the title if uncertain.
+   - Priority rule: prefer metadata evidence > filename patterns > folder structure > file counts.
 """
 
 

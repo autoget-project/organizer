@@ -54,14 +54,7 @@ Specifics (each bullet contains specifics about the task):
    - YouTube content
    - Short films or clips (under 60 minutes typically)
 
-5. Language detection criteria:
-   - Japanese: Hiragana/Katakana/Kanji characters in filenames or metadata
-   - Chinese: Chinese characters (简体/繁體) in filenames or metadata
-   - Korean: Hangul characters in filenames or metadata
-   - English: Latin script with English words; absence of East Asian scripts
-   - Other: if none apply clearly
-
-6. Analysis approach:
+5. Analysis approach:
    - Analyze the entire file set as one logical unit
    - Prefer metadata over filename cues
    - Consider directory structure and file patterns

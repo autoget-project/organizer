@@ -10,51 +10,21 @@ Task: You are an AI agent specialized in determining if a group of files represe
 
 Please repeat the prompt back as you understand it.
 
-Specifics (each bullet contains specifics about the task):
-
 1. Input:
    - A single JSON object containing:
      - "files": array of file path strings (each may include folders and filenames)
      - "metadata" (optional): object with fields like "title", "description", "tags", etc.
    - Treat all files as a single group to determine if they represent music videos.
-
-2. Music video detection criteria:
-   - File types: Look for .mp4, .mkv, .avi, .mov, .wmv, .flv, .webm, .m4v files
-   - Filename patterns: 
-     - Artist - Title format (e.g., "Taylor Swift - Shake It Off.mp4")
-     - Music video keywords: "MV", "music video", "official video", "lyric video"
-     - Live performance indicators: "live", "concert", "performance", "festival"
-     - Video quality indicators: "1080p", "720p", "4K", "HD"
-   - Directory structure:
-     - Music video folders (e.g., "Music Videos", "MV Collection", "Official Videos")
-     - Artist-based organization (e.g., "Artist Name/Music Videos/")
-     - Year or album-based organization
-   - Metadata indicators:
-     - "artist", "song", "track", "album", "genre" in metadata fields
-     - Music-related tags like "pop", "rock", "electronic", "hip-hop"
-     - Video-specific metadata like duration, resolution, bitrate
-
-3. Non-music video exclusions:
-   - Regular movies or TV shows (no music-related indicators)
-   - Concert films/full concerts (these are typically categorized differently)
-   - Documentaries about music (unless focused on specific music videos)
-   - Video tutorials or educational content
-   - Regular video content without music elements
-
-4. Language detection criteria:
-   - Japanese: Hiragana/Katakana/Kanji characters in filenames or metadata
-   - Chinese: Chinese characters (简体/繁體) in filenames or metadata
-   - Korean: Hangul characters in filenames or metadata
-   - English: Latin script with English words; absence of East Asian scripts
-   - Other: if none apply clearly
-
-5. Analysis approach:
-   - Analyze the entire file set as one logical unit
-   - Prefer metadata over filename cues
-   - Consider directory structure and dominant patterns
-   - Use web_search to verify uncertain cases - search for artists, songs, or music videos
-   - When uncertain, select the closest matching response based on strongest evidence
-   - Provide brief reasoning for your decision
+2. Detection rules & priorities:
+   - Consider only these video extensions: .mp4, .mkv, .avi, .mov, .wmv, .flv, .webm, .m4v.
+   - Prefer signals in this order: metadata > filename patterns > directory names > file extensions.
+   - Filename / pattern indicators: "Artist - Title" format; keywords like "MV", "music video", "official video", "lyric video"; live indicators "live", "concert", "performance", "festival".
+   - Dominant or repeated patterns across multiple files raise confidence (e.g., many files in "Music Videos" folder, or many filenames with "MV").
+   - Use web_search mcp tool to verify ambiguous artist/title cases or to infer language when metadata is missing.
+3. Non-music-video exclusions:
+   - If files show movie/TV episode patterns (season/episode tags, known film titles), documentaries (descriptive tags), tutorials, or purely spoken/educational content, classify as not music videos unless strong MV indicators appear.
+4. Language detection:
+   - Prefer explicit metadata language fields, then artist/title language cues; if still ambiguous, perform brief web verification for the song/artist.
 """
 
 
@@ -75,15 +45,8 @@ if __name__ == "__main__":
 
     req = PlanRequest(
       files=[
-        "Taylor Swift - Shake It Off (Official Music Video).mp4",
-        "Taylor Swift - Blank Space (Official Music Video).mp4",
-        "Taylor Swift - Bad Blood (Official Music Video).mp4",
+        "Luis Fonsi - Despacito.mp4",
       ],
-      metadata={
-        "artist": "Taylor Swift",
-        "genre": "Pop",
-        "description": "Official music videos collection",
-      },
     )
 
     a = agent(metadataMcp())
