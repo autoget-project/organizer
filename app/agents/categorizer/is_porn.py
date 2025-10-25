@@ -6,9 +6,14 @@ from ..models import PlanRequest
 from .models import IsPornResponse
 
 _INSTRUCTION = """\
-Task: You are an AI agent specialized in determining if a group of files represents porn content that does not use the bango system, including movie-style porn and OnlyFans content, based solely on filenames, directory paths, and available metadata.
+Task: You are an AI agent specialized in determining if a group of files represents porn content that does not use the bango system, including movie-style porn and OnlyFans content, based solely on filenames, directory paths, and available metadata. Return an IsPornResponse object with "is_porn" (yes/no/maybe), "is_vr", "from_onlyfans", "name", "actors", "language", and "reason".
 
 Please repeat the prompt back as you understand it.
+
+Classification Rules for is_porn field:
+- "yes": Files are clearly porn content (adult entertainment, sexual content, explicit material)
+- "no": Files are clearly NOT porn content (mainstream movies, TV shows, educational content, etc.)
+- "maybe": Files could be porn but lack sufficient information for definitive classification
 
 1. Input:
    - A single JSON object containing:
@@ -16,69 +21,58 @@ Please repeat the prompt back as you understand it.
      - "metadata" (optional): object with fields like "title", "description", "tags", etc.
    - Treat all files as a single group to determine if they represent non-bango porn content.
 
-2. Non-bango porn detection criteria:
-   - File types: Look for .mp4, .mkv, .avi, .mov, .wmv, .flv, .webm video files
-   - Movie-style naming patterns:
-     - Descriptive titles like "Hot Summer Night", "Office Romance", etc.
-     - Studio/producer names in titles (Brazzers, Reality Kings, Tushy, etc.)
-     - Genre descriptions in filenames
-     - No JAV-style naming bango codes.
-   - Directory structure:
-     - Studio folders (Brazzers, Naughty America, etc.)
-     - Genre folders (Hardcore, Lesbian, MILF, etc.)
-     - Actress/actor name folders
-     - Collection folders
-   - Metadata indicators:
-     - Adult content tags and descriptions
-     - Actor/actress information
-     - Studio/producer information
-     - Adult content ratings
+2. Return "no" when:
+   - Files are mainstream movies or TV shows (non-adult entertainment)
+   - Files are JAV/bango content (these should go to is_bango_porn instead)
+   - Files are music videos, concerts, or audio content
+   - Files are educational, documentary, or tutorial content
+   - Files are software, games, or applications
+   - Files are books, audiobooks, or text-based content
+   - Files are sports events, news, or informational content
+   - Web search confirms content is not porn but mainstream media
+   - Files contain no adult content indicators and appear to be regular entertainment
 
-3. OnlyFans detection criteria:
-   - OnlyFans indicators in filenames:
-     - Creator usernames or names
-     - "OnlyFans" text in filenames
-     - Date-based naming (YYYY-MM-DD format typical for OnlyFans)
-     - Creator-specific branding
-   - OnlyFans metadata:
-     - OnlyFans platform indicators
-     - Creator information
-     - Subscriber/content type indicators
-   - Directory structure:
-     - Creator name folders
-     - OnlyFans-specific organization
+3. Return "yes" when:
+   - Non-bango porn detection criteria:
+     • File types: .mp4, .mkv, .avi, .mov, .wmv, .flv, .webm video files
+     • Movie-style naming patterns: Descriptive titles like "Hot Summer Night", "Office Romance", etc.
+     • Studio/producer names in titles (Brazzers, Reality Kings, Tushy, etc.)
+     • Genre descriptions in filenames
+     • No JAV-style naming bango codes.
+     • Directory structure: Studio folders (Brazzers, Naughty America, etc.), Genre folders (Hardcore, Lesbian, MILF, etc.), Actress/actor name folders
+     • Metadata indicators: Adult content tags and descriptions, Actor/actress information, Studio/producer information, Adult content ratings
+   - OnlyFans detection criteria:
+     • Creator usernames or names in filenames
+     • "OnlyFans" text in filenames or metadata
+     • Date-based naming (YYYY-MM-DD format typical for OnlyFans)
+     • Creator-specific branding and organization
+   - Web search confirms the content is pornographic
 
-4. VR detection criteria:
-   - VR indicators in filenames:
-     - "VR", "Virtual Reality", "360°", "180°" keywords
-     - VR studio names (VRBangers, NaughtyAmericaVR, SLR (SexLikeReal), VRSpy, etc.)
-     - VR-specific naming patterns
-   - VR metadata:
-     - VR technology indicators
-     - VR platform information
-     - 3D/360° tags
+4. VR detection criteria (for is_vr field):
+   - VR indicators in filenames: "VR", "Virtual Reality", "360°", "180°" keywords
+   - VR studio names (VRBangers, NaughtyAmericaVR, SLR (SexLikeReal), VRSpy, etc.)
+   - VR-specific naming patterns and metadata
    - Use search_porn and web_search to verify VR content
 
-5. Actor extraction:
+5. OnlyFans detection criteria (for from_onlyfans field):
+   - OnlyFans platform indicators in filenames and metadata
+   - Creator information and subscriber/content type indicators
+   - Creator name folders and OnlyFans-specific organization
+   - Date-based naming typical for OnlyFans content
+
+6. Actor extraction:
    - Extract performer names from filenames and metadata
    - Use search_porn to get accurate actor information
    - Handle multiple performers in the same content
    - For OnlyFans, extract creator names
    - Format names consistently
 
-6. Language detection criteria:
+7. Language detection criteria:
    - Japanese: Hiragana/Katakana/Kanji characters in filenames or metadata
    - Chinese: Chinese characters (简体/繁體) in filenames or metadata
    - Korean: Hangul characters in filenames or metadata
    - English: Latin script with English words; absence of East Asian scripts
    - Other: if none apply clearly
-
-7. Exclusions (not non-bango porn):
-   - JAV/bango content (these should go to is_bango_porn)
-   - Regular movies (non-adult)
-   - TV series (non-adult)
-   - Music videos or concerts
-   - Educational content
 
 8. Analysis approach:
    - Analyze the entire file set as one logical unit

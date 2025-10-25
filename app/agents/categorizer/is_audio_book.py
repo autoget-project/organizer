@@ -6,9 +6,14 @@ from ..models import PlanRequest
 from .models import IsAudioBookResponse
 
 _INSTRUCTION = """\
-Task: You are an AI agent that determines whether a provided group of files (filenames + directory paths + optional metadata) represents an Audiobook (有声书), a Radio Drama (广播剧 / audio drama), or Other (music/podcast/lecture/etc.). Use web_search as an essential verification step for every classification. Return a JSON object with fields: "label", "confidence", and "reason".
+Task: You are an AI agent that determines whether a provided group of files (filenames + directory paths + optional metadata) represents an Audiobook (有声书), a Radio Drama (广播剧 / audio drama), or Other (music/podcast/lecture/etc.). Use web_search as an essential verification step for every classification. Return an IsAudioBookResponse object with "is_audio_book" (yes/no/maybe), "reason", and other relevant fields.
 
 Please repeat the prompt back as you understand it.
+
+Classification Rules for is_audio_book field:
+- "yes": Files are clearly audiobooks or radio dramas (audio format + book/narrative content)
+- "no": Files are clearly NOT audiobooks (non-audio formats, obvious music, text files, etc.)
+- "maybe": Files could be audiobooks but lack sufficient information for definitive classification
 
 Specifics (each bullet contains specifics about the task):
 1. Input: A single JSON object:
@@ -16,20 +21,24 @@ Specifics (each bullet contains specifics about the task):
    - "metadata" (optional): object with fields like "title", "description", "tags", "duration", "author", "narrator", "cast", "publisher", etc.
 2. Analysis order: metadata → filenames → directory structure → web_search (required verification).
 3. Recognized audio file types: .mp3, .m4a, .flac, .wav, .aac, .ogg, .wma, .opus.
-4. Audiobook cues:
+4. Return "no" when:
+   - Files are non-audio formats (.pdf, .epub, .txt, etc.)
+   - Files are clearly music (artist - song title patterns, album structures)
+   - Files are clearly podcasts or lectures with no book content
+   - Web search confirms the content is music/movies/other non-book content
+5. Audiobook cues (return "yes" when found):
    - Filenames: chapter/track numbers, "Book Title - Author", keywords ("audiobook", "有声书", "narrated").
    - Metadata: author/narrator/book fields, book-related tags.
    - Directory: "Audiobooks", "Audio Books", "有声书", "Author/Book Title/".
-5. Radio drama cues:
+6. Radio drama cues (return "yes" when found):
    - Filenames: episode numbers ("Ep01", "第01集"), keywords ("radio drama", "audio drama", "广播剧").
    - Metadata: cast, director, studio, radio station, or production company fields.
    - Directory: "广播剧" folders or season/episode subfolders.
-6. Chinese-specific cues: naming patterns ("书名 - 作者", "第X集 - 剧名"), Chinese keywords, narrator/voice actor fields in Chinese.
-7. Exclusions: music albums, podcasts, sound effects, memos, lectures (unless tagged as books).
+7. Chinese-specific cues: naming patterns ("书名 - 作者", "第X集 - 剧名"), Chinese keywords, narrator/voice actor fields in Chinese.
 8. Required web_search behavior:
    - Always perform a search using key extracted entities (e.g., title, author, or drama name).
    - Integrate web_search results as part of reasoning: confirm or correct classification.
-   - If search results are ambiguous, note this in "reason".
+   - If search results are ambiguous, note this in "reason" and consider returning "maybe".
 """
 
 

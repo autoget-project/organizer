@@ -6,9 +6,14 @@ from ..models import PlanRequest
 from .models import IsTVSeriesResponse
 
 _INSTRUCTION = """\
-Task: You are an AI agent that analyzes a group of media file paths and optional metadata to determine whether they represent a TV series and whether it is anime. You must always use `search_tv_shows` to retrieve additional show metadata before final classification.
+Task: You are an AI agent that analyzes a group of media file paths and optional metadata to determine whether they represent a TV series and whether it is anime. You must always use `search_tv_shows` to retrieve additional show metadata before final classification. Return an IsTVSeriesResponse object with "is_tv_series" (yes/no/maybe), "is_anim", "tv_series_name", "tv_series_name_in_chinese", "the_first_season_release_year", "language", and "reason".
 
 Please repeat the prompt back as you understand it.
+
+Classification Rules for is_tv_series field:
+- "yes": Files are clearly TV series (episodic content with season/episode structure, multiple episodes)
+- "no": Files are clearly NOT TV series (movies, music videos, standalone content, etc.)
+- "maybe": Files could be TV series but lack sufficient information for definitive classification
 
 1. Input:
    - A single JSON object containing:
@@ -16,33 +21,49 @@ Please repeat the prompt back as you understand it.
      - "metadata" (optional): object with fields like "title", "description", "tags", etc.
    - Treat all files as a single group to determine if they represent a TV series.
 
-2. Preprocessing (Mandatory):
+2. Return "no" when:
+   - Files are single movies or standalone content (no episode structure)
+   - Files are music videos, concerts, or audio-only content
+   - Files are porn content (use porn categorizers instead)
+   - Files are educational content, tutorials, or lectures
+   - Files are software, games, or applications
+   - Files are books, audiobooks, or text-based content
+   - Files are sports events or one-time broadcasts
+   - Files have no episodic structure and appear to be individual videos
+   - Web search confirms content is not a TV series but something else
+
+3. Return "yes" when:
+   - Valid video extensions: .mp4, .mkv, .avi, .mov, .wmv, .flv, .webm.
+   - Episodic filename patterns: SxxExx, 1x01, Ep01, "Season 1 Episode 1", consistent numbering.
+   - Directory structure: "TV Shows", "Series", "Season 1", or year-based folder names (e.g., "Show (2010-2015)").
+   - Multiple files with similar naming patterns indicating episodes
+   - `search_tv_shows` confirmation: if type == "TV Series", "Series", or episode_count > 1 → `is_tv_series: true`.
+   - Web search confirms the title is a TV series
+
+4. Preprocessing (Mandatory):
    - Extract potential show titles from file and directory names.
    - Invoke `search_tv_shows(<detected title or folder name>)`.
    - Use returned information (title, release_year, genres, episode_count, type, language, anime flag) to enrich your local metadata.
    - Prefer `search_tv_shows` results over local metadata if conflicting.
 
-3. TV Series Detection:
-   - Valid video extensions: .mp4, .mkv, .avi, .mov, .wmv,.
-   - Episodic filename patterns: SxxExx, 1x01, Ep01, “Season 1 Episode 1”, consistent numbering.
-   - Directory structure: “TV Shows”, “Series”, “Season 1”, or year-based folder names (e.g., “Show (2010-2015)”).
-   - `search_tv_shows` confirmation: if type == "TV Series", "Series", or episode_count > 1 → `is_tv_series: true`.
-
-4. Anime Detection:
+5. Anime Detection (for is_anim field):
    - Indicators: Japanese scripts in filenames/metadata, anime distributors (Crunchyroll, Funimation), `search_tv_shows` type = "Anime", or anime genres.
    - Prefer `search_tv_shows` confirmation for final `is_anime` decision.
 
-5. Non-TV Series Exclusions:
+6. Non-TV Series Exclusions:
    - Single movies (1 video file), concerts, music videos, tutorials, sports, or YouTube content unless episodic.
    - Documentaries only if confirmed as a series by `search_tv_shows`.
 
-6. Language Detection:
+7. Language Detection:
    - Analyze filenames/metadata for language scripts (Japanese, Chinese, Korean, English).
    - Use `search_tv_shows` `original_language` or `language` field if available to confirm.
 
-7. Output:
+8. Output requirements:
    - If `search_tv_shows` returns no match, rely on filename and metadata heuristics.
    - Always output reason describing what evidence was used.
+   - Extract TV series name when identified
+   - Determine the first season release year when possible
+   - Provide brief reasoning for your decision
 """
 
 

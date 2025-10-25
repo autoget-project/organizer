@@ -28,7 +28,6 @@ class IsBangoPornResponse(BaseModel):
   reason: str = Field(description="provide brief reasoning for your decision")
 
 
-
 class GroupIsBangoPornResponse(BaseModel):
   is_bango_porn: SimpleAgentResponseResult
   porns: Dict[str, IsBangoPornResponse] = Field(description="file to details information")
@@ -38,7 +37,6 @@ class IsBookResponse(BaseModel):
   is_book: SimpleAgentResponseResult
   language: Language
   reason: str = Field(description="provide brief reasoning for your decision")
-
 
 
 class IsMovieResponse(BaseModel):
@@ -51,12 +49,10 @@ class IsMovieResponse(BaseModel):
   reason: str = Field(description="provide brief reasoning for your decision")
 
 
-
 class IsMusicVideoResponse(BaseModel):
   is_music_video: SimpleAgentResponseResult
   language: Language
   reason: str = Field(description="provide brief reasoning for your decision")
-
 
 
 class IsMusicResponse(BaseModel):
@@ -65,11 +61,9 @@ class IsMusicResponse(BaseModel):
   reason: str = Field(description="provide brief reasoning for your decision")
 
 
-
 class IsPhotobookResponse(BaseModel):
   is_photobook: SimpleAgentResponseResult
   reason: str = Field(description="provide brief reasoning for your decision")
-
 
 
 class IsPornResponse(BaseModel):
@@ -82,7 +76,6 @@ class IsPornResponse(BaseModel):
   reason: str = Field(description="provide brief reasoning for your decision")
 
 
-
 class IsTVSeriesResponse(BaseModel):
   is_tv_series: SimpleAgentResponseResult
   is_anim: SimpleAgentResponseResult
@@ -93,11 +86,9 @@ class IsTVSeriesResponse(BaseModel):
   reason: str = Field(description="provide brief reasoning for your decision")
 
 
-
 class DecisionMakerResponse(BaseModel):
   category: Category
   reason: str = Field(description="provide brief reasoning for your decision")
-
 
 
 class PlanRequestWithCategory(BaseModel):

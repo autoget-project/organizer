@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import Dict, List, Literal, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -74,6 +74,7 @@ class SimpleAgentResponseResult(Enum):
   yes = auto()
   no = auto()
   maybe = auto()
+
 
 class Language(Enum):
   chinese = auto()

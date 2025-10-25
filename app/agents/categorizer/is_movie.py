@@ -6,11 +6,14 @@ from ..models import PlanRequest
 from .models import IsMovieResponse
 
 _INSTRUCTION = """\
-Task: You are an AI agent specialized in determining if a group of files represents movie content and detecting if it's anime based solely on filenames, directory paths, and available metadata.
+Task: You are an AI agent specialized in determining if a group of files represents movie content and detecting if it's anime based solely on filenames, directory paths, and available metadata. Return an IsMovieResponse object with "is_movie" (yes/no/maybe), "is_anim", "movie_name", "movie_name_in_chinese", "release_year", "language", and "reason".
 
 Please repeat the prompt back as you understand it.
 
-Specifics (each bullet contains specifics about the task):
+Classification Rules for is_movie field:
+- "yes": Files are clearly movies (single narrative films, standalone content, no episode structure)
+- "no": Files are clearly NOT movies (TV series, music videos, software, educational content, etc.)
+- "maybe": Files could be movies but lack sufficient information for definitive classification
 
 1. Input:
    - A single JSON object containing:
@@ -18,8 +21,18 @@ Specifics (each bullet contains specifics about the task):
      - "metadata" (optional): object with fields like "title", "description", "tags", etc.
    - Treat all files as a single group to determine if they represent a movie.
 
-2. Movie detection criteria:
-   - File types: Look for .mp4, .mkv, .avi, .mov, .wmv, .flv, .webm video files
+2. Return "no" when:
+   - Files have TV series patterns: season/episode numbering (S01E01, 1x01, etc.)
+   - Files are music videos, concerts, or audio-only content
+   - Files are software, games, applications, or educational tutorials
+   - Files are sports events, news broadcasts, or YouTube content
+   - Files are porn content (use porn categorizers instead)
+   - Files are books, audiobooks, or text-based content
+   - Web search confirms content is not a movie but something else
+   - Files are multiple short clips that don't form a coherent movie
+
+3. Return "yes" when:
+   - File types: .mp4, .mkv, .avi, .mov, .wmv, .flv, .webm video files
    - Filename patterns:
      - Movie titles with years (e.g., "Inception.2010.1080p.BluRay.x264.mkv")
      - Single large video files (typical movie length)
@@ -35,8 +48,9 @@ Specifics (each bullet contains specifics about the task):
      - Movie-related tags like "action", "comedy", "drama", "thriller", "horror"
      - Runtime information indicating movie length (90-180 minutes typical)
      - Production company, director, actor information
+   - Web search confirms the title is a movie
 
-3. Anime movie detection criteria:
+4. Anime movie detection criteria (for is_anim field):
    - Japanese anime films (Studio Ghibli, Makoto Shinkai, etc.)
    - Anime studios in metadata (Studio Ghibli, Madhouse, Kyoto Animation, etc.)
    - Japanese language content with English subtitles
@@ -44,15 +58,6 @@ Specifics (each bullet contains specifics about the task):
    - Art style indicators in metadata or descriptions
    - Japanese titles with English translations
    - Anime film distributors (Crunchyroll, Funimation, etc.)
-
-4. Non-movie exclusions:
-   - TV series with season/episode numbering
-   - Documentaries (unless clearly a documentary film)
-   - Music videos or concerts
-   - Software tutorials or educational content
-   - Sports events or highlights
-   - YouTube content
-   - Short films or clips (under 60 minutes typically)
 
 5. Analysis approach:
    - Analyze the entire file set as one logical unit

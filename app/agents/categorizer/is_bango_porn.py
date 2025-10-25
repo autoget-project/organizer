@@ -1,3 +1,4 @@
+import asyncio
 import os
 
 from pydantic_ai import Agent, ToolOutput
@@ -8,29 +9,52 @@ from ..models import PlanRequest, SimpleAgentResponseResult
 from .models import GroupIsBangoPornResponse, IsBangoPornResponse
 
 _INSTRUCTION = """\
-Task: You are an AI agent specialized in determining if a group of files represents Japanese bango porn content and detecting specific characteristics like VR, Madou productions, and FC2 content based solely on filenames, directory paths, and available metadata.
+Task: You are an AI agent specialized in determining if a group of files represents Japanese bango porn content and detecting specific characteristics like VR, Madou productions, and FC2 content based solely on filenames, directory paths, and available metadata. Return an IsBangoPornResponse object with "is_bango_porn" (yes/no/maybe), "is_vr", "is_madou", "is_fc2", "bango", "actors", "language", and "reason".
 
 Please repeat the prompt back as you understand it.
+
+Classification Rules for is_bango_porn field:
+- "yes": Files are clearly Japanese/Chinese bango porn content (have valid bango codes, studio prefixes, or confirmed porn metadata)
+- "no": Files are clearly NOT bango porn content (mainstream movies, TV shows, music, regular videos, non-porn content, etc.)
+- "maybe": Files could be bango porn but lack sufficient bango codes or verification
 
 1. Input:
    - A single JSON object containing:
      - "files": array of file path strings (each may include folders and filenames)
      - "metadata" (optional): object with fields like "title", "description", "tags", etc.
 
-2. Thinking order:
+2. Return "no" when:
+   - Files are clearly mainstream movies or TV shows (Hollywood, Chinese, Korean dramas, etc.)
+   - Files are music videos, concerts, or audio content
+   - Files are regular documentaries, educational content, or non-porn media
+   - Files have no bango codes and clearly indicate non-porn content in filenames/metadata
+   - Files are software, games, or other non-video content
+   - Web search confirms the content is not porn but mainstream media
+
+3. Return "yes" when:
+   - Valid bango codes found: `[A-Z]{2,5}-[0-9]{2,7}` (example: ABP-123, SSIS-456)
+   - Known bango prefixes: JAV, FC2, HEYZO, CARIB, 1PON, etc.
+   - Madou (麻豆) prefixes: MD|MDCM|MDHG|MDHT|MDL|MDSR|MSD
+   - FC2 patterns: `FC2(-PPV)?-[0-9]{4,8}` (example: FC2-1234567, FC2-PPV-1234567)
+   - Web search confirms the bango code is porn content
+   - Metadata clearly indicates adult content with bango-like naming
+
+4. Thinking order:
    - Scan filenames and directory paths for candidate bango codes, studio names, actor tokens, and VR/Madou/FC2 indicators.
    - Check metadata (title/description/tags/studio) for matching candidates — metadata takes precedence over filenames.
-   - For each candidate bango code , call search_japanese_porn for metadata (studio, tags, actors, vr flag).
+   - For each candidate bango code, call search_japanese_porn for metadata (studio, tags, actors, vr flag).
    - Use combined evidence to set is_bango_porn, is_vr, is_madou, is_fc2 and extract actor names. Search results override filename/metadata when present.
-3. Detection rules / regex examples:
-   - Bango general: `[A-Z]{2,5}-[0-9]{2,7}`  (example: ABP-123, SSIS-456)
-   - Standard prefixes to look for in filenames/metadata: JAV, FC2, HEYZO, CARIB, 1PON, etc.
-   - VR: common bango prefixes: IPVR, DSVR, HNVR, JUVR, MDVR, SIVR or keywords VR, 360°, Virtual Reality in metadata/tags.
-   - Madou (麻豆): bango prefixes MD|MDCM|MDHG|MDHT|MDL|MDSR|MSD (- optional dash or digits follow)
-   - FC2: `FC2(-PPV)?-[0-9]{4,8}`  (example: FC2-1234567, FC2-PPV-1234567)
+   - If web search shows the content is not porn, override to "no".
 
-4. Actor extraction:
-   - Extract Japanese actress names from search_japanese_porn results
+5. Special detection rules:
+   - VR: common bango prefixes: IPVR, DSVR, HNVR, JUVR, MDVR, SIVR or keywords VR, 360°, Virtual Reality in metadata/tags.
+   - Madou (麻豆): We consider Madou (麻豆) porn as bango porn because they also use bango system for naming.
+   - Actor extraction: Extract Japanese/Chinese actress names from search_japanese_porn results
+
+6. Verification:
+   - Always use web search to verify bango codes when found
+   - If search results indicate the content is mainstream media (not porn), return "no"
+   - If search fails or is inconclusive but strong bango patterns exist, consider "maybe"
 """
 
 
@@ -80,7 +104,6 @@ if __name__ == "__main__":
       ],
     )
 
-    a = agent(metadataMcp())
-    res = a.run_sync(req.model_dump_json())
+    res = asyncio.run(is_bango_porn(req.model_dump_json(), metadataMcp()))
     print(f"output: {res.output}")
     print(f"usage: {res.usage()}")
