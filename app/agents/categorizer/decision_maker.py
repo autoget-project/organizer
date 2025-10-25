@@ -1,6 +1,6 @@
 from pydantic_ai import Agent
 
-from ..ai import model, setupLogfire
+from ..ai import model
 from .models import CategorizerContext, DecisionMakerResponse
 
 _INSTRUCTION = """\
@@ -66,6 +66,8 @@ def agent() -> Agent:
 
 
 if __name__ == "__main__":
+  from ..ai import setupLogfire
+
   if model():
     setupLogfire()
 

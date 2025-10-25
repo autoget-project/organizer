@@ -96,14 +96,14 @@ async def categorizer(req: PlanRequest, mcp: MCPServer) -> PlanRequestWithCatego
   req_json = req.model_dump_json()
 
   for cat in possible_categories.highly_possible_categories:
-    res = await per_category_checker(req_json, cat, mcp, categorizer_context)
+    res = await per_category_checker(req, req_json, cat, mcp, categorizer_context)
     if res:
       return categorizer_context.to_plan_request_with_category(res)
 
   for cat in possible_categories.possible_categories:
     if cat in possible_categories.highly_possible_categories:
       continue
-    res = await per_category_checker(req_json, cat, mcp, categorizer_context)
+    res = await per_category_checker(req, req_json, cat, mcp, categorizer_context)
     if res:
       return categorizer_context.to_plan_request_with_category(res)
 
@@ -116,3 +116,19 @@ async def categorizer(req: PlanRequest, mcp: MCPServer) -> PlanRequestWithCatego
   return categorizer_context.to_plan_request_with_category_unknown(
     Category.unknown, res.output.reason
   )
+
+if __name__ == "__main__":
+  from ..ai import model, setupLogfire, metadataMcp
+  import asyncio
+
+  if model():
+    setupLogfire()
+
+    req = PlanRequest(
+      files=[
+        "SSIS-456.mp4",
+      ],
+    )
+
+    res = asyncio.run(categorizer(req, metadataMcp()))
+    print(f"output: {res}")

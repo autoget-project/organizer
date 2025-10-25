@@ -4,7 +4,7 @@ import os
 from pydantic_ai import Agent, ToolOutput
 from pydantic_ai.mcp import MCPServer
 
-from ..ai import allowedTools, metadataMcp, model, setupLogfire
+from ..ai import allowedTools, model
 from ..models import PlanRequest, SimpleAgentResponseResult
 from .models import GroupIsBangoPornResponse, IsBangoPornResponse
 
@@ -95,6 +95,8 @@ async def is_bango_porn(req: PlanRequest, mcp: MCPServer) -> GroupIsBangoPornRes
 
 
 if __name__ == "__main__":
+  from ..ai import setupLogfire, metadataMcp
+
   if model():
     setupLogfire()
 
@@ -104,6 +106,5 @@ if __name__ == "__main__":
       ],
     )
 
-    res = asyncio.run(is_bango_porn(req.model_dump_json(), metadataMcp()))
-    print(f"output: {res.output}")
-    print(f"usage: {res.usage()}")
+    res = asyncio.run(is_bango_porn(req, metadataMcp()))
+    print(f"output: {res}")

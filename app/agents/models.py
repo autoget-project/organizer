@@ -41,7 +41,7 @@ class PornCategory(Enum):
 
 class PlanRequest(BaseModel):
   files: List[str]
-  metadata: dict[str, str] = None
+  metadata: dict[str, str] | None = None
 
 
 class PlanAction(BaseModel):

@@ -1,7 +1,7 @@
 from pydantic_ai import Agent, ToolOutput
 from pydantic_ai.mcp import MCPServer
 
-from ..ai import allowedTools, metadataMcp, model, setupLogfire
+from ..ai import allowedTools, model
 from ..models import PlanRequest
 from .models import IsMovieResponse
 
@@ -83,6 +83,8 @@ def agent(mcp: MCPServer) -> Agent:
 
 
 if __name__ == "__main__":
+  from ..ai import setupLogfire, metadataMcp
+
   if model():
     setupLogfire()
 
