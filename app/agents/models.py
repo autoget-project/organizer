@@ -8,8 +8,6 @@ class Category(Enum):
   unknown = auto()
   movie = auto()
   tv_series = auto()
-  anim_tv_series = auto()
-  anim_movie = auto()
   photobook = auto()
   porn = auto()
   # Japanese and Taiwan Porn are use bango (番号) system for naming.
@@ -53,6 +51,10 @@ class PlanAction(BaseModel):
     return hash(self.file)
 
 
+class MoverResponse(BaseModel):
+  plan: List[PlanAction] = None
+
+
 class PlanResponse(BaseModel):
   plan: List[PlanAction] = None
   error: str | None = None
@@ -82,3 +84,20 @@ class Language(Enum):
   japanese = auto()
   korean = auto()
   others = auto()
+
+
+class TargetDir(Enum):
+  audio_book = auto()
+  book = auto()
+  music = auto()
+  music_video = auto()
+  photobook = auto()
+  movie = auto()
+  anim_movie = auto()
+  tv_series = auto()
+  anim_tv_series = auto()
+  porn = auto()
+  porn_vr = auto()
+  jav = auto()
+  jav_vr = auto()
+  madou = auto()

@@ -98,13 +98,11 @@ class PlanRequestWithCategory(BaseModel):
   bango_porn: GroupIsBangoPornResponse | None = None
   book: IsBookResponse | None = None
   movie: IsMovieResponse | None = None
-  anim_movie: IsMovieResponse | None = None
   music_video: IsMusicVideoResponse | None = None
   music: IsMusicResponse | None = None
   photobook: IsPhotobookResponse | None = None
   porn: IsPornResponse | None = None
   tv_series: IsTVSeriesResponse | None = None
-  anim_tv_series: IsTVSeriesResponse | None = None
   unknown_reason: str | None = None
 
 
@@ -128,13 +126,11 @@ class CategorizerContext(BaseModel):
       bango_porn=self.is_bango_porn if category == Category.bango_porn else None,
       book=self.is_book if category == Category.book else None,
       movie=self.is_movie if category == Category.movie else None,
-      anim_movie=self.is_movie if category == Category.anim_movie else None,
       music_video=self.is_music_video if category == Category.music_video else None,
       music=self.is_music if category == Category.music else None,
       photobook=self.is_photobook if category == Category.photobook else None,
       porn=self.is_porn if category == Category.porn else None,
       tv_series=self.is_tv_series if category == Category.tv_series else None,
-      anim_tv_series=self.is_tv_series if category == Category.anim_tv_series else None,
       unknown_reason=None,
     )
 

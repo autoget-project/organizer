@@ -70,7 +70,7 @@ def agent(mcp: MCPServer) -> Agent:
 
 
 if __name__ == "__main__":
-  from ..ai import setupLogfire, metadataMcp
+  from ..ai import metadataMcp, setupLogfire
 
   if model():
     setupLogfire()

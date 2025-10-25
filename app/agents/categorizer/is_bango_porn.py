@@ -95,7 +95,7 @@ async def is_bango_porn(req: PlanRequest, mcp: MCPServer) -> GroupIsBangoPornRes
 
 
 if __name__ == "__main__":
-  from ..ai import setupLogfire, metadataMcp
+  from ..ai import metadataMcp, setupLogfire
 
   if model():
     setupLogfire()

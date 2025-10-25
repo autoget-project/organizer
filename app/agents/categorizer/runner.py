@@ -19,16 +19,11 @@ async def per_category_checker(
   req: PlanRequest, req_json: str, category: Category, mcp: MCPServer, context: CategorizerContext
 ) -> Category | None:
   match category:
-    # categorize_by_file_name does not return anim_ categories
-    # case Category.anim_tv_series:
-    # case Category.anim_movie:
     case Category.movie:
       a = is_movie_agent(mcp)
       res = await a.run(req_json)
       context.is_movie = res.output
       if res.output.is_movie == SimpleAgentResponseResult.yes:
-        if res.output.is_anim == SimpleAgentResponseResult.yes:
-          return Category.anim_movie
         return Category.movie
 
     case Category.tv_series:
@@ -36,8 +31,6 @@ async def per_category_checker(
       res = await a.run(req_json)
       context.is_tv_series = res.output
       if res.output.is_tv_series == SimpleAgentResponseResult.yes:
-        if res.output.is_anim == SimpleAgentResponseResult.yes:
-          return Category.anim_tv_series
         return Category.tv_series
 
     case Category.photobook:
@@ -90,7 +83,7 @@ async def per_category_checker(
   return None
 
 
-async def categorizer(req: PlanRequest, mcp: MCPServer) -> PlanRequestWithCategory:
+async def run_categorizer(req: PlanRequest, mcp: MCPServer) -> PlanRequestWithCategory:
   possible_categories = categorize_by_file_name(req)
   categorizer_context = CategorizerContext(request=req)
   req_json = req.model_dump_json()
@@ -117,9 +110,11 @@ async def categorizer(req: PlanRequest, mcp: MCPServer) -> PlanRequestWithCatego
     Category.unknown, res.output.reason
   )
 
+
 if __name__ == "__main__":
-  from ..ai import model, setupLogfire, metadataMcp
   import asyncio
+
+  from ..ai import metadataMcp, model, setupLogfire
 
   if model():
     setupLogfire()
@@ -130,5 +125,5 @@ if __name__ == "__main__":
       ],
     )
 
-    res = asyncio.run(categorizer(req, metadataMcp()))
+    res = asyncio.run(run_categorizer(req, metadataMcp()))
     print(f"output: {res}")

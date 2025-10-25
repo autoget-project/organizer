@@ -45,8 +45,8 @@ This is a Python-based FastAPI web service that intelligently organizes files do
    - **AI Models** (`ai.py`) - Provides AI model configuration and MCP server setup
 
 3. **Data Models** (`app/agents/models.py`)
-   - Defines categories: movie, tv_series, anim_tv_series, anim_movie, photobook, porn, audio_book, book, music, music_video
-   - Specialized porn categories: jav, porn, jav_vr, porn_vr, chinese
+   - Defines categories: movie, tv_series, photobook, porn, audio_book, book, music, music_video
+   - Specialized porn categories: jav, porn
    - Request/response models for API endpoints
 
 ### Agent Workflow
@@ -54,7 +54,7 @@ This is a Python-based FastAPI web service that intelligently organizes files do
 1. **Categorization Phase**: AI analyzes file metadata and filenames to determine category
 2. **Action Generation Phase**: Based on category, specialized agent generates organization plan
 3. **Simple Categories**: photobook, audio_book, book, music, music_video use simple move logic
-4. **Complex Categories**: movie, anim_movie, tv_series, anim_tv_series use specialized agents
+4. **Complex Categories**: movie, tv_series use specialized agents
 
 ### Environment Variables
 

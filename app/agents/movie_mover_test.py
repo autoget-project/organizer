@@ -1,9 +1,16 @@
 import pytest
 
-from .ai import metadataMcp, model, setupLogfire
-from .models import Category, PlanAction, PlanRequest, PlanResponse
-from .movie_mover import agent
-from .oldcategorizer import CategoryResponse
+from .ai import model, setupLogfire
+from .categorizer.models import IsMovieResponse, PlanRequestWithCategory
+from .models import (
+  Category,
+  Language,
+  MoverResponse,
+  PlanAction,
+  PlanRequest,
+  SimpleAgentResponseResult,
+)
+from .movie_mover import move
 
 
 @pytest.mark.skipif(model() is None, reason="No env var for ai model")
@@ -11,28 +18,39 @@ from .oldcategorizer import CategoryResponse
 async def test_movie_mover_agent():
   setupLogfire()
 
-  req = PlanRequest(
-    files=[
-      "The.Mad.Phoenix.1997/The.Mad.Phoenix.1997.mkv",
-      "The.Mad.Phoenix.1997/The.Mad.Phoenix.en.ass",
-      "The.Mad.Phoenix.1997/cover.jpg",
-      "The.Mad.Phoenix.1997/behind the scenes.mp4.part",
-    ],
+  req = PlanRequestWithCategory(
+    request=PlanRequest(
+      files=[
+        "The.Mad.Phoenix.1997/The.Mad.Phoenix.1997.mkv",
+        "The.Mad.Phoenix.1997/The.Mad.Phoenix.en.ass",
+        "The.Mad.Phoenix.1997/cover.jpg",
+        "The.Mad.Phoenix.1997/behind the scenes.mp4.part",
+      ],
+    ),
+    category=Category.movie,
+    movie=IsMovieResponse(
+      is_movie=SimpleAgentResponseResult.yes,
+      is_anim=SimpleAgentResponseResult.no,
+      movie_name="The Mad Phoenix",
+      movie_name_in_chinese="南海十三郎",
+      release_year=1997,
+      language=Language.chinese,
+      reason="metadata from tmdb",
+    ),
   )
 
-  a = agent(metadataMcp(), CategoryResponse(category=Category.movie, language="Chinese"))
-  res = await a.run(req.model_dump_json())
-  want = PlanResponse(
+  res = await move(req)
+  want = MoverResponse(
     plan=[
       PlanAction(
         file="The.Mad.Phoenix.1997/The.Mad.Phoenix.1997.mkv",
         action="move",
-        target="movie/Chinese/南海十三郎 (1997)/南海十三郎 (1997).mkv",
+        target="movie/chinese/南海十三郎 (1997)/南海十三郎 (1997).mkv",
       ),
       PlanAction(
         file="The.Mad.Phoenix.1997/The.Mad.Phoenix.en.ass",
         action="move",
-        target="movie/Chinese/南海十三郎 (1997)/南海十三郎 (1997).English.eng.ass",
+        target="movie/chinese/南海十三郎 (1997)/南海十三郎 (1997).English.eng.ass",
       ),
       PlanAction(
         file="The.Mad.Phoenix.1997/cover.jpg",
@@ -45,4 +63,4 @@ async def test_movie_mover_agent():
     ]
   )
 
-  assert res.output == want
+  assert res == want
