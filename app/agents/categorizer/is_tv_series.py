@@ -55,7 +55,6 @@ Classification Rules for is_tv_series field:
    - Documentaries only if confirmed as a series by `search_tv_shows`.
 
 7. Language Detection:
-   - Analyze filenames/metadata for language scripts (Japanese, Chinese, Korean, English).
    - Use `search_tv_shows` `original_language` or `language` field if available to confirm.
 
 8. Output requirements:

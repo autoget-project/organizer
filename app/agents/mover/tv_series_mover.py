@@ -24,7 +24,7 @@ Specifics:
      - "request.metadata": optional fields like title, description, etc.
      - "tv_series": object containing TV series metadata from previous AI analysis, including:
        - "tv_series_name": the TV series title
-       - "tv_series_name_in_chinese": Chinese title if available
+       - "tv_series_name_in_chinese": Simplified Chinese title (简体中文) if available
        - "the_first_season_release_year": the year of the first season
        - "language": the TV series language
        - "is_anim": whether it's an animation
@@ -34,7 +34,7 @@ Specifics:
    - Only keep video (.mp4, .mkv, .avi) and subtitle (.srt, .ass, .sub) files.
    - Exclude non-media (.jpg, .png, .nfo, etc.).
 3. Use provided TV series information:
-   - Use the tv_series_name_in_chinese if available, otherwise use tv_series_name.
+   - Use the tv_series_name_in_chinese (Simplified Chinese) if available, otherwise use tv_series_name.
    - Use the provided the_first_season_release_year for the year in folder and filenames.
 4. Construct new Jellyfin-compatible names:
    - Folder: `$PATH$/<Series Name (Year)>/Season XX`

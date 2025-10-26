@@ -1,10 +1,11 @@
-from typing import List
+from ..categorizer.models import PlanRequestWithCategory
+from ..models import PlanAction, PlanResponse
 
-from ..models import Category, PlanAction, PlanResponse
 
-
-def simple_move_plan(category: Category, files: List[str]) -> PlanResponse:
+def simple_move_plan(categorizer_res: PlanRequestWithCategory) -> PlanResponse:
   res = PlanResponse(plan=[])
+  files = categorizer_res.request.files
+  category = categorizer_res.category
   # files is in following format $torrent_hash/optional_dir/file
   # if only 1 file, just copy the file to category dir
   if len(files) == 1:

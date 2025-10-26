@@ -24,7 +24,7 @@ Specifics:
      - "request.metadata": optional fields like title, description, etc.
      - "movie": object containing movie metadata from previous AI analysis, including:
        - "movie_name": the movie title
-       - "movie_name_in_chinese": Chinese title if available
+       - "movie_name_in_chinese": Simplified Chinese title (简体中文) if available
        - "release_year": the release year
        - "language": the movie language
        - "is_anim": whether it's an animation
@@ -33,7 +33,7 @@ Specifics:
    - Only keep video (.mp4, .mkv, .avi) and subtitle (.srt, .ass, .sub) files.
    - Exclude non-media (.jpg, .png, .nfo, etc.).
 3. Use provided movie information:
-   - Use the movie_name_in_chinese if available, otherwise use movie_name.
+   - Use the movie_name_in_chinese (Simplified Chinese) if available, otherwise use movie_name.
    - Use the provided release_year for the year in folder and filenames.
 4. Construct new Jellyfin-compatible names:
    - Folder: `$PATH$/<Movie Name (Year)>`

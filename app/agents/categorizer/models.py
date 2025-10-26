@@ -43,7 +43,7 @@ class IsMovieResponse(BaseModel):
   is_movie: SimpleAgentResponseResult
   is_anim: SimpleAgentResponseResult
   movie_name: str | None
-  movie_name_in_chinese: str | None
+  movie_name_in_chinese: str | None  = Field(description="Name of Movie in Simpilfied Chinese 简体中文")
   release_year: int | None
   language: Language
   reason: str = Field(description="provide brief reasoning for your decision")
@@ -80,7 +80,7 @@ class IsTVSeriesResponse(BaseModel):
   is_tv_series: SimpleAgentResponseResult
   is_anim: SimpleAgentResponseResult
   tv_series_name: str | None
-  tv_series_name_in_chinese: str | None
+  tv_series_name_in_chinese: str | None = Field(description="Name of TV Series in Simpilfied Chinese 简体中文")
   the_first_season_release_year: int | None
   language: Language
   reason: str = Field(description="provide brief reasoning for your decision")

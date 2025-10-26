@@ -59,7 +59,10 @@ Classification Rules for is_movie field:
    - Japanese titles with English translations
    - Anime film distributors (Crunchyroll, Funimation, etc.)
 
-5. Analysis approach:
+5. Language Detection:
+   - Use `search_movie` `original_language` or `language` field if available to confirm.
+
+6. Analysis approach:
    - Analyze the entire file set as one logical unit
    - Prefer metadata over filename cues
    - Consider directory structure and file patterns
