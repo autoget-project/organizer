@@ -2,9 +2,9 @@ from os import path
 
 from pydantic_ai import Agent, ToolOutput
 
-from .ai import model, setupLogfire
-from .categorizer.models import PlanRequestWithCategory
-from .models import Category, Language, MoverResponse, SimpleAgentResponseResult, TargetDir
+from ..ai import model, setupLogfire
+from ..categorizer.models import PlanRequestWithCategory
+from ..models import Category, Language, MoverResponse, SimpleAgentResponseResult, TargetDir
 
 
 def _build_instruction(target_dir: TargetDir, language: Language) -> str:
@@ -75,8 +75,8 @@ async def move(req: PlanRequestWithCategory) -> MoverResponse:
 if __name__ == "__main__":
   import asyncio
 
-  from .categorizer.models import IsTVSeriesResponse
-  from .models import PlanRequest
+  from ..categorizer.models import IsTVSeriesResponse
+  from ..models import PlanRequest
 
   if model():
     setupLogfire()

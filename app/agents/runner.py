@@ -1,8 +1,8 @@
 from .categorizer.runner import run_categorizer
 from .models import Category, PlanRequest, PlanResponse, simple_move_categories
+from .mover.movie_mover import move as movie_move
 from .mover.simple_mover import simple_move_plan
-from .movie_mover import move as movie_move
-from .tv_series_mover import move as tv_series_move
+from .mover.tv_series_mover import move as tv_series_move
 
 
 async def create_plan(req: PlanRequest) -> PlanResponse:

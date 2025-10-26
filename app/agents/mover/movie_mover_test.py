@@ -1,8 +1,8 @@
 import pytest
 
-from .ai import model, setupLogfire
-from .categorizer.models import IsMovieResponse, PlanRequestWithCategory
-from .models import (
+from ..ai import model, setupLogfire
+from ..categorizer.models import IsMovieResponse, PlanRequestWithCategory
+from ..models import (
   Category,
   Language,
   MoverResponse,
