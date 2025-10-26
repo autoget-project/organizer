@@ -1,6 +1,8 @@
 from os import path
+from typing import Tuple
 
 from pydantic_ai import Agent, ToolOutput
+from pydantic_ai.usage import RunUsage
 
 from ..ai import model
 from ..categorizer.models import PlanRequestWithCategory
@@ -59,14 +61,14 @@ def agent(target_dir: TargetDir, language: Language) -> Agent:
   )
 
 
-async def move(req: PlanRequestWithCategory) -> MoverResponse:
+async def move(req: PlanRequestWithCategory) -> Tuple[MoverResponse, RunUsage]:
   targer_dir = (
     TargetDir.anim_movie if req.movie.is_anim == SimpleAgentResponseResult.yes else TargetDir.movie
   )
   Language = req.movie.language
   a = agent(targer_dir, Language)
   res = await a.run(req.model_dump_json())
-  return res.output
+  return res.output, res.usage()
 
 
 if __name__ == "__main__":
@@ -100,5 +102,6 @@ if __name__ == "__main__":
       ),
     )
 
-    res = asyncio.run(move(req))
+    res, usage = asyncio.run(move(req))
     print(f"output: ${res}")
+    print(f"usage: {usage}")

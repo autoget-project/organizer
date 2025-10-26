@@ -7,7 +7,6 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from .agents.models import (
-  Category,
   ExecuteRequest,
   ExecuteResponse,
   PlanFailed,

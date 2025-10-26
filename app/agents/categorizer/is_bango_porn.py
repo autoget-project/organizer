@@ -1,8 +1,10 @@
 import asyncio
 import os
+from typing import Tuple
 
 from pydantic_ai import Agent, ToolOutput
 from pydantic_ai.mcp import MCPServer
+from pydantic_ai.usage import RunUsage
 
 from ..ai import allowedTools, model
 from ..models import PlanRequest, SimpleAgentResponseResult
@@ -72,26 +74,34 @@ def agent(mcp: MCPServer) -> Agent:
 _VIDEO_EXT = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".ts"}
 
 
-async def is_bango_porn(req: PlanRequest, mcp: MCPServer) -> GroupIsBangoPornResponse:
+async def is_bango_porn(
+  req: PlanRequest, mcp: MCPServer
+) -> Tuple[GroupIsBangoPornResponse, RunUsage]:
   res = GroupIsBangoPornResponse(is_bango_porn=SimpleAgentResponseResult.no, porns={})
   a = agent(mcp)
   found_yes = False
   found_maybe = False
+  usage = RunUsage()
+
   for file in req.files:
     _, ext = os.path.splitext(file.lower())
     if ext in _VIDEO_EXT:
       new_req = PlanRequest(files=[file], metadata=req.metadata)
       per_file_res = await a.run(new_req.model_dump_json())
       res.porns[file] = per_file_res.output
+      usage.incr(per_file_res.usage())
+
       if per_file_res.output.is_bango_porn == SimpleAgentResponseResult.yes:
         found_yes = True
       if per_file_res.output.is_bango_porn == SimpleAgentResponseResult.maybe:
         found_maybe = True
+
   if found_yes:
     res.is_bango_porn = SimpleAgentResponseResult.yes
   elif found_maybe:
     res.is_bango_porn = SimpleAgentResponseResult.maybe
-  return res
+
+  return res, usage
 
 
 if __name__ == "__main__":
@@ -106,5 +116,6 @@ if __name__ == "__main__":
       ],
     )
 
-    res = asyncio.run(is_bango_porn(req, metadataMcp()))
+    res, usage = asyncio.run(is_bango_porn(req, metadataMcp()))
     print(f"output: {res}")
+    print(f"usage: {usage}")

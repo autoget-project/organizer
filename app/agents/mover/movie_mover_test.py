@@ -39,7 +39,7 @@ async def test_movie_mover_agent():
     ),
   )
 
-  res = await move(req)
+  res, usage = await move(req)
   want = MoverResponse(
     plan=[
       PlanAction(
@@ -64,3 +64,4 @@ async def test_movie_mover_agent():
   )
 
   assert res == want
+  assert usage is not None

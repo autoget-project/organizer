@@ -25,7 +25,7 @@ from .runner import create_plan
 async def test_create_plan_simple(file: str, target: str):
   setupLogfire()
 
-  got = await create_plan(PlanRequest(files=[file]))
+  got, usage = await create_plan(PlanRequest(files=[file]))
   want = PlanResponse(
     plan=[
       PlanAction(file=file, action="move", target=target),
@@ -33,3 +33,4 @@ async def test_create_plan_simple(file: str, target: str):
   )
 
   assert got.plan == want.plan
+  assert usage is not None
