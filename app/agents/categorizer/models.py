@@ -69,6 +69,7 @@ class IsPhotobookResponse(BaseModel):
 
 
 class IsPornResponse(BaseModel):
+  id: str | None = Field(description="the id from mcp tool")
   is_porn: SimpleAgentResponseResult
   is_vr: SimpleAgentResponseResult
   from_onlyfans: SimpleAgentResponseResult
