@@ -13,7 +13,7 @@ from .agents.models import (
   PlanFailed,
   PlanRequest,
   PlanResponse,
-  PornCategory,
+  TargetDir,
 )
 from .agents.runner import create_plan as ai_create_plan
 
@@ -48,11 +48,8 @@ def startup_check():
   check_env_vars("DOWNLOAD_COMPLETED_DIR")
   check_env_vars("TARGET_DIR")
 
-  for cat in Category:
-    check_dir(os.path.join(os.getenv("TARGET_DIR"), cat.name))
-
-  for pcat in PornCategory:
-    check_dir(os.path.join(os.getenv("TARGET_DIR"), Category.porn.name, pcat.name))
+  for t in TargetDir:
+    check_dir(os.path.join(os.getenv("TARGET_DIR"), t.name))
 
 
 @asynccontextmanager
