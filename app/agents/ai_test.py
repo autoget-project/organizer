@@ -29,9 +29,6 @@ def test_metadata_mcp_tool():
     "search_tv_shows",
     "search_porn",
     "search_japanese_porn",
-    "web_search_jav_actor_alias",
-    "jav_actor_name_to_dir",
-    "jav_actor_add_alias",
   ]
 
   want.sort()

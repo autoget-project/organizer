@@ -12,7 +12,7 @@ from .is_movie import agent as is_movie_agent
 from .is_music import agent as is_music_agent
 from .is_music_video import agent as is_music_video_agent
 from .is_photobook import agent as is_photobook_agent
-from .is_porn import agent as is_porn_agent
+from .is_porn import is_porn
 from .is_tv_series import agent as is_tv_series_agent
 from .manual_categorizer import categorize_by_file_name
 from .models import CategorizerContext, PlanRequestWithCategory
@@ -44,11 +44,10 @@ async def per_category_checker(
         return Category.photobook, res.usage()
 
     case Category.porn:
-      a = is_porn_agent(mcp)
-      res = await a.run(req_json)
+      res, usage = await is_porn(req_json, mcp)
       context.is_porn = res.output
       if res.output.is_porn == SimpleAgentResponseResult.yes:
-        return Category.porn, res.usage()
+        return Category.porn, usage
 
     case Category.bango_porn:
       context.is_bango_porn, bango_usage = await is_bango_porn(req, mcp)

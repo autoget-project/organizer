@@ -79,6 +79,11 @@ class IsPornResponse(BaseModel):
   reason: str = Field(description="provide brief reasoning for your decision")
 
 
+class GroupIsPornResponse(BaseModel):
+  is_porn: SimpleAgentResponseResult
+  porns: Dict[str, IsPornResponse] = Field(description="file to details information")
+
+
 class IsTVSeriesResponse(BaseModel):
   is_tv_series: SimpleAgentResponseResult
   is_anim: SimpleAgentResponseResult
@@ -106,7 +111,7 @@ class PlanRequestWithCategory(BaseModel):
   music_video: IsMusicVideoResponse | None = None
   music: IsMusicResponse | None = None
   photobook: IsPhotobookResponse | None = None
-  porn: IsPornResponse | None = None
+  porn: GroupIsPornResponse | None = None
   tv_series: IsTVSeriesResponse | None = None
   unknown_reason: str | None = None
 
@@ -120,7 +125,7 @@ class CategorizerContext(BaseModel):
   is_music_video: IsMusicVideoResponse | None = None
   is_music: IsMusicResponse | None = None
   is_photobook: IsPhotobookResponse | None = None
-  is_porn: IsPornResponse | None = None
+  is_porn: GroupIsPornResponse | None = None
   is_tv_series: IsTVSeriesResponse | None = None
 
   def to_plan_request_with_category(self, category: Category) -> PlanRequestWithCategory:

@@ -93,3 +93,7 @@ class TargetDir(Enum):
   jav = auto()
   jav_vr = auto()
   madou = auto()
+
+
+VIDEO_EXT = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".ts"}
+SUB_EXT = {".srt", ".sub", ".ass", ".ssa", ".vtt"}

@@ -1,9 +1,14 @@
+import asyncio
+import os
+from typing import Tuple
+
 from pydantic_ai import Agent, ToolOutput
 from pydantic_ai.mcp import MCPServer
+from pydantic_ai.usage import RunUsage
 
 from ..ai import allowedTools, model
-from ..models import PlanRequest
-from .models import IsPornResponse
+from ..models import VIDEO_EXT, PlanRequest, SimpleAgentResponseResult
+from .models import GroupIsPornResponse, IsPornResponse
 
 _INSTRUCTION = """\
 Task: You are an AI agent specialized in determining if a group of files represents porn content that does not use the bango system, including movie-style porn and OnlyFans content, based solely on filenames, directory paths, and available metadata. Return an IsPornResponse object with "is_porn" (yes/no/maybe), "is_vr", "from_onlyfans", "name", "actors", "language", and "reason".
@@ -98,6 +103,34 @@ def agent(mcp: MCPServer) -> Agent:
   )
 
 
+async def is_porn(req: PlanRequest, mcp: MCPServer) -> Tuple[GroupIsPornResponse, RunUsage]:
+  res = GroupIsPornResponse(is_porn=SimpleAgentResponseResult.no, porns={})
+  a = agent(mcp)
+  found_yes = False
+  found_maybe = False
+  usage = RunUsage()
+
+  for file in req.files:
+    _, ext = os.path.splitext(file.lower())
+    if ext in VIDEO_EXT:
+      new_req = PlanRequest(files=[file], metadata=req.metadata)
+      per_file_res = await a.run(new_req.model_dump_json())
+      res.porns[file] = per_file_res.output
+      usage.incr(per_file_res.usage())
+
+      if per_file_res.output.is_porn == SimpleAgentResponseResult.yes:
+        found_yes = True
+      if per_file_res.output.is_porn == SimpleAgentResponseResult.maybe:
+        found_maybe = True
+
+  if found_yes:
+    res.is_porn = SimpleAgentResponseResult.yes
+  elif found_maybe:
+    res.is_porn = SimpleAgentResponseResult.maybe
+
+  return res, usage
+
+
 if __name__ == "__main__":
   from ..ai import metadataMcp, setupLogfire
 
@@ -110,7 +143,6 @@ if __name__ == "__main__":
       ],
     )
 
-    a = agent(metadataMcp())
-    res = a.run_sync(req.model_dump_json())
-    print(f"output: {res.output}")
-    print(f"usage: {res.usage()}")
+    res, usage = asyncio.run(is_porn(req, metadataMcp()))
+    print(f"output: {res}")
+    print(f"usage: {usage}")

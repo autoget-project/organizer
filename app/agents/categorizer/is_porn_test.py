@@ -2,8 +2,8 @@ import pytest
 
 from ..ai import metadataMcp, model, setupLogfire
 from ..models import PlanRequest
-from .is_porn import agent
-from .models import SimpleAgentResponseResult
+from .is_porn import is_porn
+from .models import GroupIsPornResponse, SimpleAgentResponseResult
 
 
 @pytest.mark.asyncio
@@ -14,11 +14,13 @@ async def test_is_porn_yes():
 
   req = PlanRequest(files=["Long Con 1.mp4"], metadata={})
 
-  test_agent = agent(metadataMcp())
-  res = await test_agent.run(req.model_dump_json())
+  res, usage = await is_porn(req, metadataMcp())
 
-  assert res.output.is_porn == SimpleAgentResponseResult.yes
-  assert "porn" in res.output.reason.lower()
+  assert isinstance(res, GroupIsPornResponse)
+  assert res.is_porn == SimpleAgentResponseResult.yes
+  assert "Long Con 1.mp4" in res.porns
+  assert res.porns["Long Con 1.mp4"].is_porn == SimpleAgentResponseResult.yes
+  assert "porn" in res.porns["Long Con 1.mp4"].reason.lower()
 
 
 @pytest.mark.asyncio
@@ -29,12 +31,23 @@ async def test_is_porn_vr_yes():
 
   req = PlanRequest(files=["SLROriginals - Stepsister's Intimate Desires.mp4"], metadata={})
 
-  test_agent = agent(metadataMcp())
-  res = await test_agent.run(req.model_dump_json())
+  res, usage = await is_porn(req, metadataMcp())
 
-  assert res.output.is_porn == SimpleAgentResponseResult.yes
-  assert res.output.is_vr == SimpleAgentResponseResult.yes
-  assert "vr" in res.output.reason.lower() or "virtual" in res.output.reason.lower()
+  assert isinstance(res, GroupIsPornResponse)
+  assert res.is_porn == SimpleAgentResponseResult.yes
+  assert "SLROriginals - Stepsister's Intimate Desires.mp4" in res.porns
+  assert (
+    res.porns["SLROriginals - Stepsister's Intimate Desires.mp4"].is_porn
+    == SimpleAgentResponseResult.yes
+  )
+  assert (
+    res.porns["SLROriginals - Stepsister's Intimate Desires.mp4"].is_vr
+    == SimpleAgentResponseResult.yes
+  )
+  assert (
+    "vr" in res.porns["SLROriginals - Stepsister's Intimate Desires.mp4"].reason.lower()
+    or "virtual" in res.porns["SLROriginals - Stepsister's Intimate Desires.mp4"].reason.lower()
+  )
 
 
 @pytest.mark.asyncio
@@ -45,8 +58,13 @@ async def test_is_porn_jav_no():
 
   req = PlanRequest(files=["IPZZ-123.mp4"], metadata={})
 
-  test_agent = agent(metadataMcp())
-  res = await test_agent.run(req.model_dump_json())
+  res, usage = await is_porn(req, metadataMcp())
 
-  assert res.output.is_porn == SimpleAgentResponseResult.no
-  assert "jav" in res.output.reason.lower() or "bango" in res.output.reason.lower()
+  assert isinstance(res, GroupIsPornResponse)
+  assert res.is_porn == SimpleAgentResponseResult.no
+  assert "IPZZ-123.mp4" in res.porns
+  assert res.porns["IPZZ-123.mp4"].is_porn == SimpleAgentResponseResult.no
+  assert (
+    "jav" in res.porns["IPZZ-123.mp4"].reason.lower()
+    or "bango" in res.porns["IPZZ-123.mp4"].reason.lower()
+  )
