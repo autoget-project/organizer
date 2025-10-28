@@ -1,6 +1,7 @@
 from typing import Dict
 
 from pydantic import BaseModel, Field
+from pydantic_ai import RunUsage
 
 from ..models import Category, Language, PlanRequest, SimpleAgentResponseResult
 
@@ -118,6 +119,7 @@ class PlanRequestWithCategory(BaseModel):
 
 class CategorizerContext(BaseModel):
   request: PlanRequest
+  usage: RunUsage = RunUsage()
   is_audio_book: IsAudioBookResponse | None = None
   is_bango_porn: GroupIsBangoPornResponse | None = None
   is_book: IsBookResponse | None = None
