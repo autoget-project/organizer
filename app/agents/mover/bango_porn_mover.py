@@ -157,7 +157,7 @@ if __name__ == "__main__":
             from_madou=SimpleAgentResponseResult.no,
             from_fc2=SimpleAgentResponseResult.no,
             actors=["Yua Mikami"],  # actor doesnot exist in file, will add
-            language=Language.japanese,
+            language=Language.Japanese,
             reason="",
           ),
         },

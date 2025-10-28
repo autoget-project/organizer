@@ -77,7 +77,7 @@ if __name__ == "__main__":
             is_vr=SimpleAgentResponseResult.no,
             from_onlyfans=SimpleAgentResponseResult.no,
             actors=[],
-            language=Language.english,
+            language=Language.English,
             reason="",
           )
         },

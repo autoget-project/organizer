@@ -34,7 +34,7 @@ async def test_movie_mover_agent():
       movie_name="The Mad Phoenix",
       movie_name_in_chinese="南海十三郎",
       release_year=1997,
-      language=Language.chinese,
+      language=Language.Chinese,
       reason="metadata from tmdb",
     ),
   )

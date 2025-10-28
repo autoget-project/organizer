@@ -71,11 +71,11 @@ class SimpleAgentResponseResult(Enum):
 
 
 class Language(Enum):
-  chinese = auto()
-  english = auto()
-  japanese = auto()
-  korean = auto()
-  others = auto()
+  Chinese = auto()
+  English = auto()
+  Japanese = auto()
+  Korean = auto()
+  Others = auto()
 
 
 class TargetDir(Enum):

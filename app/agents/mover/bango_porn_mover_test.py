@@ -55,7 +55,7 @@ async def test_bango_porn_mover(tmp_path):
           from_madou=SimpleAgentResponseResult.no,
           from_fc2=SimpleAgentResponseResult.no,
           actors=["Yua Mikami"],  # actor doesnot exist in file, will add
-          language=Language.japanese,
+          language=Language.Japanese,
           reason="",
         ),
       },

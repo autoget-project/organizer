@@ -35,7 +35,7 @@ async def test_tv_series_mover_agent():
       tv_series_name="My Date with a Vampire",
       tv_series_name_in_chinese="我和僵尸有个约会",
       the_first_season_release_year=1998,
-      language=Language.chinese,
+      language=Language.Chinese,
       reason="metadata from tmdb",
     ),
   )
