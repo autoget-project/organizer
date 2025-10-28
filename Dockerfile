@@ -12,21 +12,18 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/* \
     && pip install uv
 
+# Create non-root user
+RUN useradd -u 99 --create-home --shell /bin/bash app
+USER app
+
 # Set work directory
 WORKDIR /app
 
-# Copy uv configuration files
-COPY pyproject.toml uv.lock ./
+# Copy all files
+COPY . .
 
 # Install dependencies
 RUN uv sync --frozen --no-dev
-
-# Copy application code
-COPY . .
-
-# Create non-root user
-RUN useradd --create-home --shell /bin/bash app && chown -R app:app /app
-USER app
 
 # Expose port
 EXPOSE 8000
