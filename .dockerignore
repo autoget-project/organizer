@@ -1,0 +1,16 @@
+# Python
+__pycache__
+.venv
+.ruff_cache
+build
+.pytest_cache
+
+# Env
+.local
+.env
+
+# IDE
+.vscode/
+
+# Git
+.git
