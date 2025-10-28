@@ -42,3 +42,13 @@ def setupLogfire():
 
     logfire.configure()
     logfire.instrument_pydantic_ai()
+
+
+def setupLogfireForStdLog():
+  if os.getenv("LOGFIRE_TOKEN"):
+    from logging import basicConfig
+
+    import logfire
+
+    logfire.configure()
+    basicConfig(handlers=[logfire.LogfireLoggingHandler()])

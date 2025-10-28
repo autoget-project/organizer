@@ -3,6 +3,7 @@ import sys
 from contextlib import asynccontextmanager
 from typing import List
 
+import logfire
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
@@ -62,6 +63,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+if os.getenv("LOGFIRE_TOKEN"):
+  logfire.configure()
+  logfire.instrument_fastapi(app)
 
 
 @app.post("/v1/plan", response_model=PlanResponse)

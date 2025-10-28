@@ -11,8 +11,9 @@ from pydantic import BaseModel
 from pydantic_ai import Agent, RunUsage, ToolOutput
 from pydantic_ai.mcp import MCPServer
 
-from ..ai import allowedTools, model
+from ..ai import allowedTools, model, setupLogfireForStdLog
 
+setupLogfireForStdLog()
 _LOGGER = logging.getLogger(__name__)
 
 
