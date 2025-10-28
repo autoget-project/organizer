@@ -94,6 +94,41 @@ uv run fastapi dev
 
 The service will be accessible at `http://localhost:8000`. You can then use the API endpoints described above to organize your files.
 
+## Docker Run
+
+```sh
+docker run -p 8000:8000 \
+  --name organizer \
+  -e LOGFIRE_TOKEN="your-logfire-token" \
+  -e GROK_API_KEY="your-grok-api-key" \
+  -e MODEL="grok:grok-4-fast-reasoning" \
+  -e METADATA_MCP="http://your-mcp-server-url" \
+  -e DOWNLOAD_COMPLETED_DIR="/app/downloads" \
+  -e TARGET_DIR="/app/target" \
+  -e JAV_ACTOR_FILE="/app/target/actor.json" \
+  -v $(pwd)/downloads:/app/downloads \
+  -v $(pwd)/target:/app/target \
+  ghcr.io/autoget-project/organizer:main
+```
+
+### Environment Variables
+
+When running with Docker, you need to provide these environment variables:
+
+**Required:**
+- `MODEL` - AI model name (e.g., `grok:grok-4-fast-reasoning`)
+- `METADATA_MCP` - MCP server URL for metadata access
+- `DOWNLOAD_COMPLETED_DIR` - Source directory containing files to organize
+- `TARGET_DIR` - Target directory where organized files will be moved
+- `JAV_ACTOR_FILE` - Path to JAV actor mapping file
+
+**AI Provider (choose one):**
+- `GROK_API_KEY` - For Grok API access
+- `LM_STUDIO_API_BASE` - For LM Studio or other local API endpoints
+
+**Optional:**
+- `LOGFIRE_TOKEN` - For logging and observability
+
 ## Development
 
 ### Test single agent
