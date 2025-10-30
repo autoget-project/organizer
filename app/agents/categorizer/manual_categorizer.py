@@ -1,6 +1,8 @@
 import os
 import re
 
+from pydantic_ai.mcp import MCPServer
+
 from ..models import Category, PlanRequest
 from .models import FilenameBasedPreCatergoizerResult
 
@@ -61,3 +63,48 @@ def categorize_by_file_name(req: PlanRequest) -> FilenameBasedPreCatergoizerResu
     highly_possible_categories=list(highly_possible_categories),
     possible_categories=list(possible_categories),
   )
+
+
+async def categorize_by_metadata_hints(req: PlanRequest, mcp: MCPServer) -> list[Category]:
+  if not req.metadata:
+    return []
+
+  if "dmm_id" in req.metadata:
+    res = await mcp.direct_call_tool("search_japanese_porn", {"jav_id": req.metadata["dmm_id"]})
+    req.metadata["search_japanese_porn_result"] = res
+    return Category.bango_porn
+
+  if "imdb_id" in req.metadata:
+    res = await mcp.direct_call_tool("find_by_imdb_id", {"imdb_id": req.metadata["imdb_id"]})
+    req.metadata["find_by_imdb_id_result"] = res
+    if "tv_results" in res:
+      return [Category.tv_series]
+    if "movie_results" in res:
+      return [Category.movie]
+
+    return [Category.tv_series, Category.movie]
+
+  if "organizer_category" in req.metadata:
+    return req.metadata["organizer_category"]
+
+  return []
+
+
+if __name__ == "__main__":
+  import asyncio
+
+  from ..ai import metadataMcp, model, setupLogfire
+
+  if model():
+    setupLogfire()
+
+    req = PlanRequest(
+      files=[],
+      # metadata={"imdb_id": "tt0369179"},
+      metadata={"dmm_id": "pred00374"},
+    )
+
+    mcp = metadataMcp()
+    cat = asyncio.run(categorize_by_metadata_hints(req, mcp))
+    print(f"category: {cat}")
+    print(f"req: {req}")

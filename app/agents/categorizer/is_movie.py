@@ -18,10 +18,23 @@ Classification Rules for is_movie field:
 1. Input:
    - A single JSON object containing:
      - "files": array of file path strings (each may include folders and filenames)
-     - "metadata" (optional): object with fields like "title", "description", "tags", etc.
+     - "metadata" (optional): object with fields like "title", "description", "tags", "find_by_imdb_id_result", etc.
    - Treat all files as a single group to determine if they represent a movie.
 
-2. Return "no" when:
+2. Priority Order for Analysis:
+   - First check for "find_by_imdb_id_result" in metadata - this is the highest authority
+   - Then check other metadata fields (title, description, tags)
+   - Finally analyze filename and directory patterns
+
+3. IMDb Metadata Analysis (when find_by_imdb_id_result exists):
+   - If result contains "movie_results": Strong evidence for "yes"
+   - If result contains "tv_results": Strong evidence for "no" (it's a TV series)
+   - Extract movie_name, release_year, language from the IMDb result
+   - Check genre information in IMDb result for anime indicators
+   - Use IMDb data to override filename-based assumptions
+
+4. Return "no" when:
+   - find_by_imdb_id_result contains "tv_results" (TV series data)
    - Files have TV series patterns: season/episode numbering (S01E01, 1x01, etc.)
    - Files are music videos, concerts, or audio-only content
    - Files are software, games, applications, or educational tutorials
@@ -31,7 +44,8 @@ Classification Rules for is_movie field:
    - Web search confirms content is not a movie but something else
    - Files are multiple short clips that don't form a coherent movie
 
-3. Return "yes" when:
+5. Return "yes" when:
+   - find_by_imdb_id_result contains "movie_results" (movie data)
    - File types: .mp4, .mkv, .avi, .mov, .wmv, .flv, .webm video files
    - Filename patterns:
      - Movie titles with years (e.g., "Inception.2010.1080p.BluRay.x264.mkv")
@@ -50,7 +64,7 @@ Classification Rules for is_movie field:
      - Production company, director, actor information
    - Web search confirms the title is a movie
 
-4. Anime movie detection criteria (for is_anim field):
+6. Anime movie detection criteria (for is_anim field):
    - Japanese anime films (Studio Ghibli, Makoto Shinkai, etc.)
    - Anime studios in metadata (Studio Ghibli, Madhouse, Kyoto Animation, etc.)
    - Japanese language content with English subtitles
@@ -58,19 +72,23 @@ Classification Rules for is_movie field:
    - Art style indicators in metadata or descriptions
    - Japanese titles with English translations
    - Anime film distributors (Crunchyroll, Funimation, etc.)
+   - IMDb result genres indicating "Animation", "Anime", or similar
 
-5. Language Detection:
-   - Use `search_movie` `original_language` or `language` field if available to confirm.
+7. Language Detection:
+   - Use find_by_imdb_id_result language information first if available
+   - Then use search_movie original_language or language field if available
+   - Finally infer from filenames and metadata
 
-6. Analysis approach:
+8. Analysis approach:
+   - Always check for find_by_imdb_id_result first and prioritize it
    - Analyze the entire file set as one logical unit
    - Prefer metadata over filename cues
    - Consider directory structure and file patterns
    - Use search_movies to verify uncertain cases - search for movie titles, release information
    - When uncertain, select the closest matching response based on strongest evidence
-   - Extract the movie name when identified
-   - Determine the release year when possible
-   - Provide brief reasoning for your decision
+   - Extract the movie name when identified (prefer IMDb result title)
+   - Determine the release year when possible (prefer IMDb result year)
+   - Provide brief reasoning for your decision, explicitly mentioning if IMDb data was used
 """
 
 

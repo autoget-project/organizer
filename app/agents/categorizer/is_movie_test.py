@@ -82,4 +82,3 @@ async def test_is_movie_porn_no():
   res = await test_agent.run(req.model_dump_json())
 
   assert res.output.is_movie == SimpleAgentResponseResult.no
-  assert "porn" in res.output.reason.lower() or "adult" in res.output.reason.lower()

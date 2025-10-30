@@ -23,9 +23,22 @@ Classification Rules for is_bango_porn field:
 1. Input:
    - A single JSON object containing:
      - "files": array of file path strings (each may include folders and filenames)
-     - "metadata" (optional): object with fields like "title", "description", "tags", etc.
+     - "metadata" (optional): object with fields like "title", "description", "tags", "search_japanese_porn_result", etc.
 
-2. Return "no" when:
+2. Priority Order for Analysis:
+   - First check for "search_japanese_porn_result" in metadata - this is the highest authority
+   - Then check other metadata fields (title, description, tags, dmm_id)
+   - Finally analyze filename and directory patterns for bango codes
+
+3. Japanese Porn Metadata Analysis (when search_japanese_porn_result exists):
+   - If result exists and confirms porn content: Strong evidence for "yes"
+   - Extract bango, actors, VR/Madou/FC2 flags from the search result
+   - Check studio information and tags in the result
+   - Use search result data to override filename-based assumptions
+   - If result indicates non-porn content: Strong evidence for "no"
+
+4. Return "no" when:
+   - search_japanese_porn_result exists and indicates non-porn content
    - Files are clearly mainstream movies or TV shows (Hollywood, Chinese, Korean dramas, etc.)
    - Files are music videos, concerts, or audio content
    - Files are regular documentaries, educational content, or non-porn media
@@ -33,7 +46,8 @@ Classification Rules for is_bango_porn field:
    - Files are software, games, or other non-video content
    - Web search confirms the content is not porn but mainstream media
 
-3. Return "yes" when:
+5. Return "yes" when:
+   - search_japanese_porn_result exists and confirms porn content
    - Valid bango codes found: `[A-Z]{2,5}-[0-9]{2,7}` (example: ABP-123, SSIS-456)
    - Known bango prefixes: JAV, FC2, HEYZO, CARIB, 1PON, etc.
    - Madou (麻豆) prefixes: MD|MDCM|MDHG|MDHT|MDL|MDSR|MSD
@@ -41,20 +55,23 @@ Classification Rules for is_bango_porn field:
    - Web search confirms the bango code is porn content
    - Metadata clearly indicates adult content with bango-like naming
 
-4. Thinking order:
+6. Thinking order:
+   - Check for search_japanese_porn_result first and use it if available
    - Scan filenames and directory paths for candidate bango codes, studio names, actor tokens, and VR/Madou/FC2 indicators.
-   - Check metadata (title/description/tags/studio) for matching candidates — metadata takes precedence over filenames.
+   - Check metadata (title/description/tags/studio/dmm_id) for matching candidates — metadata takes precedence over filenames.
    - For each candidate bango code, call search_japanese_porn for metadata (studio, tags, actors, vr flag).
    - Use combined evidence to set is_bango_porn, is_vr, is_madou, is_fc2 and extract actor names. Search results override filename/metadata when present.
    - If web search shows the content is not porn, override to "no".
 
-5. Special detection rules:
-   - VR: common bango prefixes: IPVR, DSVR, HNVR, JUVR, MDVR, SIVR or keywords VR, 360°, Virtual Reality in metadata/tags.
+7. Special detection rules:
+   - VR: common bango prefixes: IPVR, DSVR, HNVR, JUVR, MDVR, SIVR or keywords VR, 360°, Virtual Reality in metadata/tags, or VR flag in search_japanese_porn_result.
    - Madou (麻豆): We consider Madou (麻豆) porn as bango porn because they also use bango system for naming.
-   - Actor extraction: Extract Japanese/Chinese actress names from search_japanese_porn results
+   - Actor extraction: Extract Japanese/Chinese actress names from search_japanese_porn_result first, then from search results
+   - FC2 detection: Check FC2 flag in search_japanese_porn_result and FC2 patterns in filenames/metadata
 
-6. Verification:
-   - Always use web search to verify bango codes when found
+8. Verification:
+   - Always prioritize existing search_japanese_porn_result over new web searches
+   - Always use web search to verify bango codes when found (if no existing result)
    - If search results indicate the content is mainstream media (not porn), return "no"
    - If search fails or is inconclusive but strong bango patterns exist, consider "maybe"
 """

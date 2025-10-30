@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import List, Literal, Optional
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -31,7 +31,7 @@ simple_move_categories = [
 
 class PlanRequest(BaseModel):
   files: List[str]
-  metadata: dict[str, str] | None = None
+  metadata: dict[str, Any] | None = None
 
 
 class PlanAction(BaseModel):

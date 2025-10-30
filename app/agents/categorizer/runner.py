@@ -14,7 +14,7 @@ from .is_music_video import agent as is_music_video_agent
 from .is_photobook import agent as is_photobook_agent
 from .is_porn import is_porn
 from .is_tv_series import agent as is_tv_series_agent
-from .manual_categorizer import categorize_by_file_name
+from .manual_categorizer import categorize_by_file_name, categorize_by_metadata_hints
 from .models import CategorizerContext, PlanRequestWithCategory
 
 
@@ -98,9 +98,17 @@ async def per_category_checker(
 async def run_categorizer(
   req: PlanRequest, mcp: MCPServer
 ) -> Tuple[PlanRequestWithCategory, RunUsage]:
+  # this step may change metadata
+  categories_from_metadata = await categorize_by_metadata_hints(req, mcp)
+  req_json = req.model_dump_json()
+
+  for cat in categories_from_metadata:
+    res = await per_category_checker(req, req_json, cat, mcp, categorizer_context)
+    if res:
+      return categorizer_context.to_plan_request_with_category(res), categorizer_context.usage
+
   possible_categories = categorize_by_file_name(req)
   categorizer_context = CategorizerContext(request=req)
-  req_json = req.model_dump_json()
 
   for cat in possible_categories.highly_possible_categories:
     res = await per_category_checker(req, req_json, cat, mcp, categorizer_context)

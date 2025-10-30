@@ -1,5 +1,8 @@
+import pytest
+
+from ..ai import model
 from ..models import Category, PlanRequest
-from .manual_categorizer import categorize_by_file_name
+from .manual_categorizer import categorize_by_file_name, categorize_by_metadata_hints
 
 
 class TestManualCategorizer:
@@ -294,3 +297,149 @@ class TestManualCategorizer:
 
     assert Category.tv_series in result.highly_possible_categories
     assert Category.bango_porn in result.highly_possible_categories
+
+
+class TestCategorizeByMetadataHints:
+  """Test cases for the categorize_by_metadata_hints function."""
+
+  @pytest.mark.asyncio
+  @pytest.mark.skipif(model() is None, reason="No env var for ai model")
+  async def test_dmm_id_returns_bango_porn(self):
+    """Test that metadata with dmm_id returns bango_porn category."""
+    from ..ai import metadataMcp
+
+    req = PlanRequest(files=["video.mp4"], metadata={"dmm_id": "pred00374"})
+
+    mcp = metadataMcp()
+    result = await categorize_by_metadata_hints(req, mcp)
+
+    assert result == Category.bango_porn
+    # Check that search result was stored in metadata
+    assert "search_japanese_porn_result" in req.metadata
+
+  @pytest.mark.asyncio
+  @pytest.mark.skipif(model() is None, reason="No env var for ai model")
+  async def test_imdb_id_tv_series_returns_tv_series(self):
+    """Test that metadata with imdb_id for TV series returns tv_series category."""
+    from ..ai import metadataMcp
+
+    req = PlanRequest(
+      files=["video.mp4"],
+      metadata={"imdb_id": "tt0944947"},  # Game of Thrones
+    )
+
+    mcp = metadataMcp()
+    result = await categorize_by_metadata_hints(req, mcp)
+
+    assert result == [Category.tv_series]
+    # Check that search result was stored in metadata
+    assert "find_by_imdb_id_result" in req.metadata
+
+  @pytest.mark.asyncio
+  @pytest.mark.skipif(model() is None, reason="No env var for ai model")
+  async def test_imdb_id_movie_returns_movie(self):
+    """Test that metadata with imdb_id for movie returns movie category."""
+    from ..ai import metadataMcp
+
+    req = PlanRequest(
+      files=["video.mp4"],
+      metadata={"imdb_id": "tt0468569"},  # The Dark Knight
+    )
+
+    mcp = metadataMcp()
+    result = await categorize_by_metadata_hints(req, mcp)
+
+    assert result == [Category.movie]
+    # Check that search result was stored in metadata
+    assert "find_by_imdb_id_result" in req.metadata
+
+  @pytest.mark.asyncio
+  @pytest.mark.skipif(model() is None, reason="No env var for ai model")
+  async def test_imdb_id_unknown_returns_both(self):
+    """Test that metadata with unknown imdb_id returns both movie and tv_series."""
+    from ..ai import metadataMcp
+
+    req = PlanRequest(
+      files=["video.mp4"],
+      metadata={"imdb_id": "tt0000000"},  # Non-existent ID
+    )
+
+    mcp = metadataMcp()
+    result = await categorize_by_metadata_hints(req, mcp)
+
+    assert set(result) == {Category.movie, Category.tv_series}
+    # Check that search result was stored in metadata
+    assert "find_by_imdb_id_result" in req.metadata
+
+  def test_organizer_category_returns_specified_categories(self):
+    """Test that metadata with organizer_category returns the specified categories."""
+    import asyncio
+
+    req = PlanRequest(
+      files=["video.mp4"], metadata={"organizer_category": [Category.movie, Category.book]}
+    )
+
+    # Create a mock MCP server since we won't actually call it
+    class MockMCP:
+      async def direct_call_tool(self, tool_name, params):
+        pytest.fail("Should not be called")
+        return {}
+
+    mcp = MockMCP()
+    result = asyncio.run(categorize_by_metadata_hints(req, mcp))
+
+    assert result == [Category.movie, Category.book]
+
+  def test_empty_metadata_returns_empty_list(self):
+    """Test that empty metadata returns empty list."""
+    import asyncio
+
+    req = PlanRequest(files=["video.mp4"], metadata={})
+
+    # Create a mock MCP server since we won't actually call it
+    class MockMCP:
+      async def direct_call_tool(self, tool_name, params):
+        pytest.fail("Should not be called")
+        return {}
+
+    mcp = MockMCP()
+    result = asyncio.run(categorize_by_metadata_hints(req, mcp))
+
+    assert result == []
+
+  def test_no_metadata_key_returns_empty_list(self):
+    """Test that request without metadata key returns empty list."""
+    import asyncio
+
+    req = PlanRequest(
+      files=["video.mp4"]
+      # No metadata key at all
+    )
+
+    # Create a mock MCP server since we won't actually call it
+    class MockMCP:
+      async def direct_call_tool(self, tool_name, params):
+        pytest.fail("Should not be called")
+        return {}
+
+    mcp = MockMCP()
+    result = asyncio.run(categorize_by_metadata_hints(req, mcp))
+
+    assert result == []
+
+  def test_single_organizer_category(self):
+    """Test that single organizer_category is returned as list."""
+    import asyncio
+
+    req = PlanRequest(files=["video.mp4"], metadata={"organizer_category": Category.book})
+
+    # Create a mock MCP server since we won't actually call it
+    class MockMCP:
+      async def direct_call_tool(self, tool_name, params):
+        pytest.fail("Should not be called")
+        return {}
+
+    mcp = MockMCP()
+    result = asyncio.run(categorize_by_metadata_hints(req, mcp))
+
+    assert result == Category.book

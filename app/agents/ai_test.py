@@ -29,6 +29,7 @@ def test_metadata_mcp_tool():
     "search_tv_shows",
     "search_porn",
     "search_japanese_porn",
+    "find_by_imdb_id",
   ]
 
   want.sort()
