@@ -442,4 +442,4 @@ class TestCategorizeByMetadataHints:
     mcp = MockMCP()
     result = asyncio.run(categorize_by_metadata_hints(req, mcp))
 
-    assert result == Category.book
+    assert result == [Category.book]
