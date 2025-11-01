@@ -47,7 +47,7 @@ async def per_category_checker(
         return Category.photobook
 
     case Category.porn:
-      res, usage = await is_porn(req_json, mcp)
+      res, usage = await is_porn(req, mcp)
       context.is_porn = res
       context.usage.incr(usage)
       if res.output.is_porn == SimpleAgentResponseResult.yes:
