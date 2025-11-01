@@ -72,7 +72,7 @@ async def categorize_by_metadata_hints(req: PlanRequest, mcp: MCPServer) -> list
   if "dmm_id" in req.metadata:
     res = await mcp.direct_call_tool("search_japanese_porn", {"jav_id": req.metadata["dmm_id"]})
     req.metadata["search_japanese_porn_result"] = res
-    return Category.bango_porn
+    return [Category.bango_porn]
 
   if "imdb_id" in req.metadata:
     res = await mcp.direct_call_tool("find_by_imdb_id", {"imdb_id": req.metadata["imdb_id"]})
@@ -85,7 +85,12 @@ async def categorize_by_metadata_hints(req: PlanRequest, mcp: MCPServer) -> list
     return [Category.tv_series, Category.movie]
 
   if "organizer_category" in req.metadata:
-    return req.metadata["organizer_category"]
+    # Ensure the returned value is a list of Category objects
+    organizer_category = req.metadata["organizer_category"]
+    if isinstance(organizer_category, list):
+      return organizer_category
+    else:
+      return [organizer_category]
 
   return []
 
