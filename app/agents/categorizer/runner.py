@@ -98,6 +98,9 @@ async def per_category_checker(
 async def run_categorizer(
   req: PlanRequest, mcp: MCPServer
 ) -> Tuple[PlanRequestWithCategory, RunUsage]:
+  # Initialize categorizer context at the beginning
+  categorizer_context = CategorizerContext(request=req)
+
   # this step may change metadata
   categories_from_metadata = await categorize_by_metadata_hints(req, mcp)
   req_json = req.model_dump_json()
@@ -108,7 +111,6 @@ async def run_categorizer(
       return categorizer_context.to_plan_request_with_category(res), categorizer_context.usage
 
   possible_categories = categorize_by_file_name(req)
-  categorizer_context = CategorizerContext(request=req)
 
   for cat in possible_categories.highly_possible_categories:
     res = await per_category_checker(req, req_json, cat, mcp, categorizer_context)
@@ -125,7 +127,7 @@ async def run_categorizer(
   # run until here is likely unknown
   a = decision_maker_agent()
   res = await a.run(req_json)
-  usage.incr(res.usage())
+  categorizer_context.usage.incr(res.usage())
   if res.output.category != Category.unknown:
     return categorizer_context.to_plan_request_with_category(
       res.output.category
