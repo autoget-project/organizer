@@ -70,7 +70,8 @@ if os.getenv("LOGFIRE_TOKEN"):
 
 @app.post("/v1/plan", response_model=PlanResponse)
 async def create_plan(request: PlanRequest):
-  return await ai_create_plan(request)
+  plan_response, _ = await ai_create_plan(request)
+  return plan_response
 
 
 @app.post("/v1/execute", response_model=ExecuteResponse)
