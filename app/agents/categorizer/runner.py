@@ -50,7 +50,7 @@ async def per_category_checker(
       res, usage = await is_porn(req, mcp)
       context.is_porn = res
       context.usage.incr(usage)
-      if res.output.is_porn == SimpleAgentResponseResult.yes:
+      if res.is_porn == SimpleAgentResponseResult.yes:
         return Category.porn
 
     case Category.bango_porn:
