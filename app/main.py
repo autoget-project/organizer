@@ -100,4 +100,16 @@ async def execute_plan(request: APIExecuteRequest):
 
   if resp.failed_move:
     return JSONResponse(content=resp.model_dump(), status_code=400)
-  return resp
+  else:
+    # Create archive directory if it doesn't exist
+    archive_dir = os.path.join(os.getenv("DOWNLOAD_COMPLETED_DIR"), "archive")
+    os.makedirs(archive_dir, exist_ok=True)
+
+    # Check if source directory still exists before moving
+    source_dir = os.path.join(os.getenv("DOWNLOAD_COMPLETED_DIR"), request.dir)
+    if os.path.exists(source_dir):
+      os.rename(
+        source_dir,
+        os.path.join(archive_dir, request.dir),
+      )
+    return resp
