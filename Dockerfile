@@ -14,6 +14,11 @@ RUN apt-get update && apt-get install -y \
 
 # Create non-root user
 RUN useradd -u 99 --create-home --shell /bin/bash app
+
+# Create /mnt directory and assign to user 99, both download and target should
+# be mounted under this.
+RUN mkdir -p /mnt && chown 99:100 /mnt
+
 USER app
 
 # Set work directory
