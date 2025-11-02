@@ -90,9 +90,9 @@ async def move(
     if not details.actors:
       target_dir = path.join(target_dir, "素人")
     else:
-      dir, usage = await find_a_dir_for_list_of_actor_name(aa, mcp, details.actors)
+      actor_dir, usage = await find_a_dir_for_list_of_actor_name(aa, mcp, details.actors)
       total_usage.incr(usage)
-      target_dir = path.join(target_dir, dir)
+      target_dir = path.join(target_dir, actor_dir)
 
     bp = BangoPorn(file=file, target_dir=target_dir, detail=details)
     video_request.files.append(bp)
