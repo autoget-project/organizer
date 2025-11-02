@@ -88,10 +88,10 @@ async def categorize_by_metadata_hints(req: PlanRequest, mcp: MCPServer) -> list
     # Ensure the returned value is a list of Category objects
     organizer_category = req.metadata["organizer_category"]
     if isinstance(organizer_category, list):
-      return [Category(cat) if isinstance(cat, str) else cat for cat in organizer_category]
+      return [Category[cat] if isinstance(cat, str) else cat for cat in organizer_category]
     else:
       return [
-        Category(organizer_category) if isinstance(organizer_category, str) else organizer_category
+        Category[organizer_category] if isinstance(organizer_category, str) else organizer_category
       ]
 
   return []

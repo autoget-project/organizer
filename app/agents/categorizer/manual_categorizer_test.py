@@ -443,3 +443,37 @@ class TestCategorizeByMetadataHints:
     result = asyncio.run(categorize_by_metadata_hints(req, mcp))
 
     assert result == [Category.book]
+
+  def test_organizer_category_with_string_values(self):
+    """Test that organizer_category with string values is converted to Category enums."""
+    import asyncio
+
+    req = PlanRequest(files=["video.mp4"], metadata={"organizer_category": ["bango_porn", "movie"]})
+
+    # Create a mock MCP server since we won't actually call it
+    class MockMCP:
+      async def direct_call_tool(self, tool_name, params):
+        pytest.fail("Should not be called")
+        return {}
+
+    mcp = MockMCP()
+    result = asyncio.run(categorize_by_metadata_hints(req, mcp))
+
+    assert result == [Category.bango_porn, Category.movie]
+
+  def test_single_organizer_category_with_string_value(self):
+    """Test that single organizer_category string value is converted to Category enum."""
+    import asyncio
+
+    req = PlanRequest(files=["video.mp4"], metadata={"organizer_category": "porn"})
+
+    # Create a mock MCP server since we won't actually call it
+    class MockMCP:
+      async def direct_call_tool(self, tool_name, params):
+        pytest.fail("Should not be called")
+        return {}
+
+    mcp = MockMCP()
+    result = asyncio.run(categorize_by_metadata_hints(req, mcp))
+
+    assert result == [Category.porn]
