@@ -7,6 +7,7 @@ import logfire
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
+from .agents.ai import setupLogfire
 from .agents.models import (
   APIExecuteRequest,
   APIPlanRequest,
@@ -17,6 +18,8 @@ from .agents.models import (
   TargetDir,
 )
 from .agents.runner import create_plan as ai_create_plan
+
+setupLogfire()
 
 
 def check_env_vars(name: str):
