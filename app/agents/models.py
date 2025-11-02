@@ -67,6 +67,13 @@ class APIExecuteRequest(BaseModel):
   plan: List[PlanAction]
 
 
+class APIReplanRequest(BaseModel):
+  files: List[str]
+  metadata: dict[str, Any] | None = None
+  previous_response: PlanResponse
+  user_hint: str
+
+
 class PlanFailed(PlanAction):
   reason: str
 

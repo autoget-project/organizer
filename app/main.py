@@ -11,6 +11,7 @@ from .agents.ai import setupLogfire
 from .agents.models import (
   APIExecuteRequest,
   APIPlanRequest,
+  APIReplanRequest,
   ExecuteResponse,
   PlanFailed,
   PlanRequest,
@@ -116,3 +117,14 @@ async def execute_plan(request: APIExecuteRequest):
         os.path.join(archive_dir, request.dir),
       )
     return resp
+
+
+@app.post("/v1/replan-with-hint", response_model=PlanResponse)
+async def replan_with_hint(request: APIReplanRequest):
+  # Import the replan agent
+  from .agents.replan_with_hints.replan_agent import replan
+
+  # Create PlanRequest from APIReplanRequest
+  plan_request = PlanRequest(files=request.files, metadata=request.metadata)
+  plan_response, _ = await replan(plan_request, request.previous_response, request.user_hint)
+  return plan_response
