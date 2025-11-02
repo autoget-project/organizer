@@ -73,7 +73,7 @@ if os.getenv("LOGFIRE_TOKEN"):
 async def create_plan(request: APIPlanRequest):
   # Create PlanRequest from APIPlanRequest
   plan_request = PlanRequest(files=request.files, metadata=request.metadata)
-  plan_response, _ = await ai_create_plan(plan_request)
+  plan_response, _ = await ai_create_plan(request.dir, plan_request)
   return plan_response
 
 
