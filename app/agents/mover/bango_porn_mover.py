@@ -94,6 +94,9 @@ async def move(
       total_usage.incr(usage)
       target_dir = path.join(target_dir, actor_dir)
 
+    if details.is_vr == SimpleAgentResponseResult.yes:
+      target_dir = path.join(target_dir, details.bango)
+
     bp = BangoPorn(file=file, target_dir=target_dir, detail=details)
     video_request.files.append(bp)
 
