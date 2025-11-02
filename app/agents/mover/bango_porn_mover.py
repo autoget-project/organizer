@@ -9,7 +9,6 @@ from ..ai import model
 from ..categorizer.models import IsBangoPornResponse, PlanRequestWithCategory
 from ..models import MoverResponse, PlanAction, SimpleAgentResponseResult, TargetDir
 from .jav_actor import find_a_dir_for_list_of_actor_name, read_actor_alias
-from .subtitle_mover import SubtitleFiles
 from .subtitle_mover import move as subtitle_move
 from .utils import filter_video_files_sub_files_and_others
 
@@ -107,8 +106,7 @@ async def move(req: PlanRequestWithCategory, mcp: MCPServer) -> Tuple[MoverRespo
 
   # Handle subtitle files
   if subfiles:
-    subtitle_files = SubtitleFiles(files=subfiles, video_move_plan=MoverResponse(plan=plan))
-    subtitle_response, subtitle_usage = await subtitle_move(subtitle_files)
+    subtitle_response, subtitle_usage = await subtitle_move(subfiles, MoverResponse(plan=plan))
     plan.extend(subtitle_response.plan)
     total_usage.incr(subtitle_usage)
 

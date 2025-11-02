@@ -5,7 +5,6 @@ from pydantic_ai import RunUsage
 
 from ..categorizer.models import PlanRequestWithCategory
 from ..models import MoverResponse, PlanAction, SimpleAgentResponseResult, TargetDir
-from .subtitle_mover import SubtitleFiles
 from .subtitle_mover import move as subtitle_move
 from .utils import filter_video_files_sub_files_and_others
 
@@ -36,8 +35,7 @@ async def move(req: PlanRequestWithCategory) -> Tuple[MoverResponse, RunUsage]:
 
   # Handle subtitle files
   if subfiles:
-    subtitle_files = SubtitleFiles(files=subfiles, video_move_plan=result)
-    subtitle_response, subtitle_usage = await subtitle_move(subtitle_files)
+    subtitle_response, subtitle_usage = await subtitle_move(subfiles, result)
     result.plan.extend(subtitle_response.plan)
     total_usage.incr(subtitle_usage)
 

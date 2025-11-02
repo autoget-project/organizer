@@ -3,15 +3,20 @@ from os import path
 from typing import Tuple
 
 from pydantic import BaseModel
-from pydantic_ai import Agent, FunctionToolset, ToolOutput
+from pydantic_ai import Agent, ToolOutput
 from pydantic_ai.usage import RunUsage
 
 from ..ai import model
 from ..models import MoverResponse
 
 
+class SubtitleFileWithContent(BaseModel):
+  name: str
+  content: str
+
+
 class SubtitleFiles(BaseModel):
-  files: list[str]
+  files: list[SubtitleFileWithContent]
   video_move_plan: MoverResponse
 
 
@@ -42,12 +47,15 @@ Please repeat the prompt back as you understand it.
 Specifics:
 1. Input:
    - JSON object containing:
-     - "files": array of subtitle file paths (.srt, .ass, .sub, etc.)
+     - "files": array of subtitle file objects, each with:
+       - "name": subtitle file path (.srt, .ass, .sub, etc.)
+       - "content": subtitle file content (first 30 lines)
      - "video_move_plan": the movement plan for video files with their target locations
 2. Analyze:
-   - Use the subtitle_file_reader_tool tool to examine subtitle content and determine language
+   - Use the provided content field in each subtitle file object to examine subtitle content and determine language
    - Match subtitle files to their corresponding video files by episode/season numbers
    - Extract language information from subtitle content (Chinese characters, English text, etc.)
+   - If content shows an error or is empty, consider the file corrupted or unreadable
 3. Construct matching subtitle names:
    - Find the matching video file from the video_move_plan
    - Use the same base name as the video file
@@ -61,27 +69,31 @@ Specifics:
    - Use the exact same target directory path as the video file
 5. Edge cases:
    - If no matching video file found, set "action": "skip"
-   - If subtitle file is corrupted or unreadable, set "action": "skip"
+   - If subtitle file content shows error or is empty, set "action": "skip"
    - Only process subtitle files (.srt, .ass, .sub, .vtt)
 """
 
 
 def agent() -> Agent:
-  subtitle_file_reader_tool = FunctionToolset(tools=[read_subtitle_file_start])
-
   return Agent(
     name="subtitle_mover",
     model=model(),
     instructions=_INSTRUCTION,
     output_type=ToolOutput(MoverResponse),
-    toolsets=[subtitle_file_reader_tool],
   )
 
 
-async def move(subtitle_files: SubtitleFiles) -> Tuple[MoverResponse, RunUsage]:
+async def move(files: list[str], video_move_plan: MoverResponse) -> Tuple[MoverResponse, RunUsage]:
   """Generate subtitle movement plan based on video movement plan."""
-  a = agent()
+  # Read subtitle files contents and create SubtitleFileWithContent objects
+  subtitle_files_with_content = []
+  for file_path in files:
+    content = read_subtitle_file_start(file_path)
+    subtitle_files_with_content.append(SubtitleFileWithContent(name=file_path, content=content))
 
+  subtitle_files = SubtitleFiles(files=subtitle_files_with_content, video_move_plan=video_move_plan)
+
+  a = agent()
   res = await a.run(subtitle_files.model_dump_json())
   return res.output, res.usage()
 
@@ -131,6 +143,9 @@ if __name__ == "__main__":
       files=[
         "movie1/sub.srt",
       ],
+      file_contents={
+        "movie1/sub.srt": text,
+      },
       video_move_plan=MoverResponse(
         plan=[
           PlanAction(
@@ -142,6 +157,6 @@ if __name__ == "__main__":
       ),
     )
 
-    res, usage = asyncio.run(move(subtitle_files))
+    res, usage = asyncio.run(move(["movie1/sub.srt"], subtitle_files.video_move_plan))
     print(f"output: {res}")
     print(f"usage: {usage}")
