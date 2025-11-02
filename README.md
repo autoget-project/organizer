@@ -12,6 +12,7 @@ This endpoint allows you to submit a list of files and associated metadata to ge
 
 ```json5
 {
+    "dir": "directory_name",
     "files": [
         "path/to/file1",
         "path/to/file2",
@@ -52,6 +53,7 @@ This endpoint executes a previously generated organization plan.
 
 ```json5
 {
+    "dir": "directory_name",
     "plan": [
         {
             "file": "path/to/file1",

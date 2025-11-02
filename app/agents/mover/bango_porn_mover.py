@@ -72,7 +72,9 @@ class VideoMoverRequest(BaseModel):
   files: list[BangoPorn]
 
 
-async def move(req: PlanRequestWithCategory, mcp: MCPServer) -> Tuple[MoverResponse, RunUsage]:
+async def move(
+  dir: str, req: PlanRequestWithCategory, mcp: MCPServer
+) -> Tuple[MoverResponse, RunUsage]:
   """Move bango porn files to appropriate target directories."""
   aa = read_actor_alias()
   total_usage = RunUsage()
@@ -106,7 +108,7 @@ async def move(req: PlanRequestWithCategory, mcp: MCPServer) -> Tuple[MoverRespo
 
   # Handle subtitle files
   if subfiles:
-    subtitle_response, subtitle_usage = await subtitle_move(subfiles, MoverResponse(plan=plan))
+    subtitle_response, subtitle_usage = await subtitle_move(dir, subfiles, MoverResponse(plan=plan))
     plan.extend(subtitle_response.plan)
     total_usage.incr(subtitle_usage)
 
@@ -163,6 +165,6 @@ if __name__ == "__main__":
     )
 
     mcp = metadataMcp()
-    res, usage = asyncio.run(move(req, mcp))
+    res, usage = asyncio.run(move("", req, mcp))
     print(f"Output: {res}")
     print(f"Usage: {usage}")

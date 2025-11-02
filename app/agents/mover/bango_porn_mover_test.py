@@ -63,7 +63,7 @@ async def test_bango_porn_mover(tmp_path):
   )
 
   mcp = metadataMcp()
-  res, usage = await move(req, mcp)
+  res, usage = await move("", req, mcp)
 
   want = MoverResponse(
     plan=[

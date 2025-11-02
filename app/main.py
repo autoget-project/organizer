@@ -8,7 +8,8 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from .agents.models import (
-  ExecuteRequest,
+  APIExecuteRequest,
+  APIPlanRequest,
   ExecuteResponse,
   PlanFailed,
   PlanRequest,
@@ -69,19 +70,21 @@ if os.getenv("LOGFIRE_TOKEN"):
 
 
 @app.post("/v1/plan", response_model=PlanResponse)
-async def create_plan(request: PlanRequest):
-  plan_response, _ = await ai_create_plan(request)
+async def create_plan(request: APIPlanRequest):
+  # Create PlanRequest from APIPlanRequest
+  plan_request = PlanRequest(files=request.files, metadata=request.metadata)
+  plan_response, _ = await ai_create_plan(plan_request)
   return plan_response
 
 
 @app.post("/v1/execute", response_model=ExecuteResponse)
-async def execute_plan(request: ExecuteRequest):
+async def execute_plan(request: APIExecuteRequest):
   resp = ExecuteResponse(failed_move=[])
 
   for action in request.plan:
     if action.action == "move":
-      # check original file exists
-      original_file = os.path.join(os.getenv("DOWNLOAD_COMPLETED_DIR"), action.file)
+      # check original file exists using completed_dir/request.dir/file
+      original_file = os.path.join(os.getenv("DOWNLOAD_COMPLETED_DIR"), request.dir, action.file)
       if not os.path.exists(original_file):
         resp.failed_move.append(
           PlanFailed(

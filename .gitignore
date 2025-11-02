@@ -3,6 +3,7 @@ __pycache__
 .ruff_cache
 build
 .pytest_cache
+.ropeproject
 
 .local
 .env

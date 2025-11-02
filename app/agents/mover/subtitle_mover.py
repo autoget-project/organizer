@@ -83,12 +83,14 @@ def agent() -> Agent:
   )
 
 
-async def move(files: list[str], video_move_plan: MoverResponse) -> Tuple[MoverResponse, RunUsage]:
+async def move(
+  dir: str, files: list[str], video_move_plan: MoverResponse
+) -> Tuple[MoverResponse, RunUsage]:
   """Generate subtitle movement plan based on video movement plan."""
   # Read subtitle files contents and create SubtitleFileWithContent objects
   subtitle_files_with_content = []
   for file_path in files:
-    content = read_subtitle_file_start(file_path)
+    content = read_subtitle_file_start(path.join(dir, file_path))
     subtitle_files_with_content.append(SubtitleFileWithContent(name=file_path, content=content))
 
   subtitle_files = SubtitleFiles(files=subtitle_files_with_content, video_move_plan=video_move_plan)
@@ -139,24 +141,16 @@ if __name__ == "__main__":
     with open(path.join(downloaded_dir, "movie1/sub.srt"), "w", encoding="utf-8") as f:
       f.write(text)
 
-    subtitle_files = SubtitleFiles(
-      files=[
-        "movie1/sub.srt",
-      ],
-      file_contents={
-        "movie1/sub.srt": text,
-      },
-      video_move_plan=MoverResponse(
-        plan=[
-          PlanAction(
-            file="movie1/movie1.mkv",
-            target="movie/movie1 (2000)/movie1 (2000).mkv",
-            action="move",
-          ),
-        ]
-      ),
+    video_move_plan = MoverResponse(
+      plan=[
+        PlanAction(
+          file="movie1/movie1.mkv",
+          target="movie/movie1 (2000)/movie1 (2000).mkv",
+          action="move",
+        ),
+      ]
     )
 
-    res, usage = asyncio.run(move(["movie1/sub.srt"], subtitle_files.video_move_plan))
+    res, usage = asyncio.run(move(["movie1/sub.srt"], video_move_plan))
     print(f"output: {res}")
     print(f"usage: {usage}")

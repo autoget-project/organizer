@@ -8,10 +8,10 @@ from .models import PlanRequest, PlanResponse
 from .mover.runner import run_mover
 
 
-async def create_plan(req: PlanRequest) -> Tuple[PlanResponse, RunUsage]:
+async def create_plan(dir: str, req: PlanRequest) -> Tuple[PlanResponse, RunUsage]:
   mcp = metadataMcp()
   categorizer_res, categorizer_usage = await run_categorizer(req, mcp)
-  mover_res, mover_usage = await run_mover(categorizer_res, mcp)
+  mover_res, mover_usage = await run_mover(dir, categorizer_res, mcp)
 
   total_usage = RunUsage()
   total_usage.incr(categorizer_usage)

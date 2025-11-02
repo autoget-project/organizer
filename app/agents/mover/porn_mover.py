@@ -9,7 +9,7 @@ from .subtitle_mover import move as subtitle_move
 from .utils import filter_video_files_sub_files_and_others
 
 
-async def move(req: PlanRequestWithCategory) -> Tuple[MoverResponse, RunUsage]:
+async def move(dir: str, req: PlanRequestWithCategory) -> Tuple[MoverResponse, RunUsage]:
   result = MoverResponse(plan=[])
   total_usage = RunUsage()
 
@@ -35,7 +35,7 @@ async def move(req: PlanRequestWithCategory) -> Tuple[MoverResponse, RunUsage]:
 
   # Handle subtitle files
   if subfiles:
-    subtitle_response, subtitle_usage = await subtitle_move(subfiles, result)
+    subtitle_response, subtitle_usage = await subtitle_move(dir, subfiles, result)
     result.plan.extend(subtitle_response.plan)
     total_usage.incr(subtitle_usage)
 
@@ -82,6 +82,6 @@ if __name__ == "__main__":
       ),
     )
 
-    res, usage = asyncio.run(move(req))
+    res, usage = asyncio.run(move("", req))
     print(f"Output: {res}")
     print(f"Usage: {usage}")
