@@ -126,5 +126,5 @@ async def replan_with_hint(request: APIReplanRequest):
 
   # Create PlanRequest from APIReplanRequest
   plan_request = PlanRequest(files=request.files, metadata=request.metadata)
-  plan_response, _ = await replan(plan_request, request.previous_response, request.user_hint)
-  return plan_response
+  mover_response, _ = await replan(plan_request, request.previous_response, request.user_hint)
+  return PlanResponse(plan=mover_response.plan)

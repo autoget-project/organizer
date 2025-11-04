@@ -4,7 +4,7 @@ from pydantic_ai import Agent, ToolOutput
 from pydantic_ai.usage import RunUsage
 
 from ..ai import model
-from ..models import PlanRequest, PlanResponse
+from ..models import MoverResponse, PlanRequest, PlanResponse
 
 
 def _build_instruction() -> str:
@@ -29,14 +29,14 @@ Specifics:
    - Maintain consistency with file organization best practices
    - Ensure all file paths and actions are valid
 4. Response format:
-   - Return a new PlanResponse with the improved plan
+   - Return a new MoverResponse with the improved plan
    - Include PlanAction objects for each file
    - Each action should be either "move" or "skip"
    - For "move" actions, include the target path
 5. Edge cases:
    - If the user hint is unclear, make reasonable assumptions
    - If files cannot be organized as requested, explain why
-   - Always return a valid PlanResponse object
+   - Always return a valid MoverResponse object
 """
 
 
@@ -45,13 +45,13 @@ def agent() -> Agent:
     name="replan_with_hints",
     model=model(),
     instructions=_build_instruction(),
-    output_type=ToolOutput(PlanResponse),
+    output_type=ToolOutput(MoverResponse),
   )
 
 
 async def replan(
   request: PlanRequest, previous_response: PlanResponse, user_hint: str
-) -> Tuple[PlanResponse, RunUsage]:
+) -> Tuple[MoverResponse, RunUsage]:
   a = agent()
 
   # Prepare the input for the agent
