@@ -1,5 +1,9 @@
+import asyncio
+from typing import Tuple
+
 from pydantic_ai import Agent, ToolOutput
 from pydantic_ai.mcp import MCPServer
+from pydantic_ai.usage import RunUsage
 
 from ..ai import allowedTools, model
 from ..models import PlanRequest
@@ -92,8 +96,8 @@ Classification Rules for is_movie field:
 """
 
 
-def agent(mcp: MCPServer) -> Agent:
-  return Agent(
+async def is_movie(req: PlanRequest, mcp: MCPServer) -> Tuple[IsMovieResponse, RunUsage]:
+  a = Agent(
     name="is_movie_detector",
     model=model(),
     instructions=_INSTRUCTION,
@@ -101,6 +105,8 @@ def agent(mcp: MCPServer) -> Agent:
     toolsets=[mcp],
     prepare_tools=allowedTools(["search_movies"]),
   )
+  res = await a.run(req.model_dump_json())
+  return res.output, res.usage()
 
 
 if __name__ == "__main__":
@@ -115,7 +121,6 @@ if __name__ == "__main__":
       ],
     )
 
-    a = agent(metadataMcp())
-    res = a.run_sync(req.model_dump_json())
-    print(f"output: {res.output}")
-    print(f"usage: {res.usage()}")
+    res, usage = asyncio.run(is_movie(req, metadataMcp()))
+    print(f"output: {res}")
+    print(f"usage: {usage}")

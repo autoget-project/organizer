@@ -2,7 +2,7 @@ import pytest
 
 from ..ai import metadataMcp, model, setupLogfire
 from ..models import PlanRequest
-from .is_tv_series import agent
+from .is_tv_series import is_tv_series
 from .models import SimpleAgentResponseResult
 
 
@@ -14,11 +14,10 @@ async def test_is_tv_series_yes():
 
   req = PlanRequest(files=["Game.of.Thrones.S01E01.mp4", "Game.of.Thrones.S01E02.mp4"], metadata={})
 
-  test_agent = agent(metadataMcp())
-  res = await test_agent.run(req.model_dump_json())
+  res, _ = await is_tv_series(req, metadataMcp())
 
-  assert res.output.is_tv_series == SimpleAgentResponseResult.yes
-  assert "tv" in res.output.reason.lower() or "series" in res.output.reason.lower()
+  assert res.is_tv_series == SimpleAgentResponseResult.yes
+  assert "tv" in res.reason.lower() or "series" in res.reason.lower()
 
 
 @pytest.mark.asyncio
@@ -29,12 +28,11 @@ async def test_is_tv_series_anim_tv_yes():
 
   req = PlanRequest(files=["Attack.on.Titan.S01E01.mp4", "Attack.on.Titan.S01E02.mp4"], metadata={})
 
-  test_agent = agent(metadataMcp())
-  res = await test_agent.run(req.model_dump_json())
+  res, _ = await is_tv_series(req, metadataMcp())
 
-  assert res.output.is_tv_series == SimpleAgentResponseResult.yes
-  assert res.output.is_anim == SimpleAgentResponseResult.yes
-  assert "anime" in res.output.reason.lower() or "animation" in res.output.reason.lower()
+  assert res.is_tv_series == SimpleAgentResponseResult.yes
+  assert res.is_anim == SimpleAgentResponseResult.yes
+  assert "anime" in res.reason.lower() or "animation" in res.reason.lower()
 
 
 @pytest.mark.asyncio
@@ -45,10 +43,9 @@ async def test_is_tv_series_jav_no():
 
   req = PlanRequest(files=["IPZZ-123.mp4"], metadata={})
 
-  test_agent = agent(metadataMcp())
-  res = await test_agent.run(req.model_dump_json())
+  res, _ = await is_tv_series(req, metadataMcp())
 
-  assert res.output.is_tv_series == SimpleAgentResponseResult.no
+  assert res.is_tv_series == SimpleAgentResponseResult.no
 
 
 @pytest.mark.asyncio
@@ -59,11 +56,10 @@ async def test_is_tv_series_movie_no():
 
   req = PlanRequest(files=["Inception.2010.1080p.BluRay.x264.mkv"], metadata={})
 
-  test_agent = agent(metadataMcp())
-  res = await test_agent.run(req.model_dump_json())
+  res, _ = await is_tv_series(req, metadataMcp())
 
-  assert res.output.is_tv_series == SimpleAgentResponseResult.no
-  assert "movie" in res.output.reason.lower()
+  assert res.is_tv_series == SimpleAgentResponseResult.no
+  assert "movie" in res.reason.lower()
 
 
 @pytest.mark.asyncio
@@ -74,7 +70,6 @@ async def test_is_tv_series_porn_no():
 
   req = PlanRequest(files=["Long Con 1.mp4"], metadata={})
 
-  test_agent = agent(metadataMcp())
-  res = await test_agent.run(req.model_dump_json())
+  res, _ = await is_tv_series(req, metadataMcp())
 
-  assert res.output.is_tv_series == SimpleAgentResponseResult.no
+  assert res.is_tv_series == SimpleAgentResponseResult.no

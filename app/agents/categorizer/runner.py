@@ -8,12 +8,12 @@ from .decision_maker import agent as decision_maker_agent
 from .is_audio_book import agent as is_audio_book_agent
 from .is_bango_porn import is_bango_porn
 from .is_book import agent as is_book_agent
-from .is_movie import agent as is_movie_agent
+from .is_movie import is_movie
 from .is_music import agent as is_music_agent
 from .is_music_video import agent as is_music_video_agent
 from .is_photobook import agent as is_photobook_agent
 from .is_porn import is_porn
-from .is_tv_series import agent as is_tv_series_agent
+from .is_tv_series import is_tv_series
 from .manual_categorizer import categorize_by_file_name, categorize_by_metadata_hints
 from .models import CategorizerContext, PlanRequestWithCategory
 
@@ -23,19 +23,17 @@ async def per_category_checker(
 ) -> Category | None:
   match category:
     case Category.movie:
-      a = is_movie_agent(mcp)
-      res = await a.run(req_json)
-      context.is_movie = res.output
-      context.usage.incr(res.usage())
-      if res.output.is_movie == SimpleAgentResponseResult.yes:
+      res, usage = await is_movie(req, mcp)
+      context.is_movie = res
+      context.usage.incr(usage)
+      if res.is_movie == SimpleAgentResponseResult.yes:
         return Category.movie
 
     case Category.tv_series:
-      a = is_tv_series_agent(mcp)
-      res = await a.run(req_json)
-      context.is_tv_series = res.output
-      context.usage.incr(res.usage())
-      if res.output.is_tv_series == SimpleAgentResponseResult.yes:
+      res, usage = await is_tv_series(req, mcp)
+      context.is_tv_series = res
+      context.usage.incr(usage)
+      if res.is_tv_series == SimpleAgentResponseResult.yes:
         return Category.tv_series
 
     case Category.photobook:

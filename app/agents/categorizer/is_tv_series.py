@@ -1,5 +1,9 @@
+import asyncio
+from typing import Tuple
+
 from pydantic_ai import Agent, ToolOutput
 from pydantic_ai.mcp import MCPServer
+from pydantic_ai.usage import RunUsage
 
 from ..ai import allowedTools, model
 from ..models import PlanRequest
@@ -86,8 +90,8 @@ Classification Rules for is_tv_series field:
 """
 
 
-def agent(mcp: MCPServer) -> Agent:
-  return Agent(
+async def is_tv_series(req: PlanRequest, mcp: MCPServer) -> Tuple[IsTVSeriesResponse, RunUsage]:
+  a = Agent(
     name="is_tv_series_detector",
     model=model(),
     instructions=_INSTRUCTION,
@@ -95,6 +99,8 @@ def agent(mcp: MCPServer) -> Agent:
     toolsets=[mcp],
     prepare_tools=allowedTools(["search_tv_shows"]),
   )
+  res = await a.run(req.model_dump_json())
+  return res.output, res.usage()
 
 
 if __name__ == "__main__":
@@ -112,7 +118,6 @@ if __name__ == "__main__":
       metadata={"title": "Two and a Half Men", "genre": "Comedy", "network": "CBS"},
     )
 
-    a = agent(metadataMcp())
-    res = a.run_sync(req.model_dump_json())
-    print(f"output: {res.output}")
-    print(f"usage: {res.usage()}")
+    res, usage = asyncio.run(is_tv_series(req, metadataMcp()))
+    print(f"output: {res}")
+    print(f"usage: {usage}")
