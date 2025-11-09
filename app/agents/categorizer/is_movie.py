@@ -1,12 +1,13 @@
 import asyncio
 from typing import Tuple
 
+import logfire
 from pydantic_ai import Agent, ToolOutput
 from pydantic_ai.mcp import MCPServer
 from pydantic_ai.usage import RunUsage
 
 from ..ai import allowedTools, model
-from ..models import PlanRequest
+from ..models import PlanRequest, iso639_to_lang_enum
 from .models import IsMovieResponse
 
 _INSTRUCTION = """\
@@ -106,7 +107,18 @@ async def is_movie(req: PlanRequest, mcp: MCPServer) -> Tuple[IsMovieResponse, R
     prepare_tools=allowedTools(["search_movies"]),
   )
   res = await a.run(req.model_dump_json())
-  return res.output, res.usage()
+  output = res.output
+  usage = res.usage()
+
+  if req.metadata and "original_language" in req.metadata:
+    lang_from_meta = iso639_to_lang_enum(req.metadata["original_language"])
+    if output.language != lang_from_meta:
+      logfire.info(
+        f"Language mismatch for movie. AI said {output.language}, but metadata says {lang_from_meta}. Overriding."
+      )
+      output.language = lang_from_meta
+
+  return output, usage
 
 
 if __name__ == "__main__":

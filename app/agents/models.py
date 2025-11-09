@@ -1,6 +1,7 @@
 from enum import Enum, auto
 from typing import Any, List, Literal, Optional
 
+from iso639 import Lang
 from pydantic import BaseModel, Field
 
 
@@ -115,3 +116,21 @@ class TargetDir(Enum):
 
 VIDEO_EXT = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".ts"}
 SUB_EXT = {".srt", ".sub", ".ass", ".ssa", ".vtt"}
+
+
+def iso639_to_lang_enum(iso639_code: str) -> Language:
+  """Convert ISO 639-1 language code to Language enum."""
+  try:
+    lang = Lang(iso639_code)
+    if lang.name == "English":
+      return Language.English
+    elif lang.name == "Chinese":
+      return Language.Chinese
+    elif lang.name == "Japanese":
+      return Language.Japanese
+    elif lang.name == "Korean":
+      return Language.Korean
+    else:
+      return Language.Others
+  except:
+    return Language.Others

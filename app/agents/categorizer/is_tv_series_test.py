@@ -1,7 +1,7 @@
 import pytest
 
 from ..ai import metadataMcp, model, setupLogfire
-from ..models import PlanRequest
+from ..models import Language, PlanRequest
 from .is_tv_series import is_tv_series
 from .models import SimpleAgentResponseResult
 
@@ -73,3 +73,21 @@ async def test_is_tv_series_porn_no():
   res, _ = await is_tv_series(req, metadataMcp())
 
   assert res.is_tv_series == SimpleAgentResponseResult.no
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(model() is None, reason="No env var for ai model")
+async def test_is_tv_series_language_override():
+  """Test case: TV series language override from metadata."""
+  setupLogfire()
+
+  # This series is originally in English, but we'll pretend metadata says it's Japanese.
+  req = PlanRequest(
+    files=["Game.of.Thrones.S01E01.mp4", "Game.of.Thrones.S01E02.mp4"],
+    metadata={"original_language": "ja"},
+  )
+
+  res, _ = await is_tv_series(req, metadataMcp())
+
+  assert res.is_tv_series == SimpleAgentResponseResult.yes
+  assert res.language == Language.Japanese

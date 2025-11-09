@@ -1001,6 +1001,15 @@ wheels = [
 ]
 
 [[package]]
+name = "iso639-lang"
+version = "2.6.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9b/5a/49bbf16d155192255e7bb37e403b2ac360144992d0d112a865afc62e457f/iso639_lang-2.6.3.tar.gz", hash = "sha256:078ddb7cd0182dcc04367691acc8022ddf7158b6cb09f08f798af823fa864265", size = 319391, upload-time = "2025-07-23T09:04:53.568Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6b/c7/f6fd3db6c33a164631c39dce2ca26a3794e3abf91b875cc99a43a5565d88/iso639_lang-2.6.3-py3-none-any.whl", hash = "sha256:a6c2fb9f739dca180dc7f48b098880f303bcce2cdf93a4ca3152ed8bbbb94fbb", size = 324990, upload-time = "2025-07-23T09:04:52.221Z" },
+]
+
+[[package]]
 name = "isodate"
 version = "0.7.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1700,6 +1709,7 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "fastapi", extra = ["standard"] },
     { name = "filelock" },
+    { name = "iso639-lang" },
     { name = "logfire", extra = ["fastapi"] },
     { name = "pydantic-ai" },
     { name = "pytest" },
@@ -1712,6 +1722,7 @@ requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.14.2" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.117.1" },
     { name = "filelock", specifier = ">=3.20.0" },
+    { name = "iso639-lang", specifier = ">=2.6.3" },
     { name = "logfire", extras = ["fastapi"], specifier = ">=4.14.2" },
     { name = "pydantic-ai", specifier = ">=1.2.0" },
     { name = "pytest", specifier = ">=8.4.2" },

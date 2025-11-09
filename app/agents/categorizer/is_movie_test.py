@@ -1,7 +1,7 @@
 import pytest
 
 from ..ai import metadataMcp, model, setupLogfire
-from ..models import PlanRequest
+from ..models import Language, PlanRequest
 from .is_movie import is_movie
 from .models import SimpleAgentResponseResult
 
@@ -75,3 +75,21 @@ async def test_is_movie_porn_no():
   res, _ = await is_movie(req, metadataMcp())
 
   assert res.is_movie == SimpleAgentResponseResult.no
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(model() is None, reason="No env var for ai model")
+async def test_is_movie_language_override():
+  """Test case: movie language override from metadata."""
+  setupLogfire()
+
+  # This movie is originally in English, but we'll pretend metadata says it's Chinese.
+  req = PlanRequest(
+    files=["Inception.2010.1080p.BluRay.x264.mkv"],
+    metadata={"original_language": "zh"},
+  )
+
+  res, _ = await is_movie(req, metadataMcp())
+
+  assert res.is_movie == SimpleAgentResponseResult.yes
+  assert res.language == Language.Chinese

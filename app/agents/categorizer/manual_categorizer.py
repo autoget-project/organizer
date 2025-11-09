@@ -76,10 +76,15 @@ async def categorize_by_metadata_hints(req: PlanRequest, mcp: MCPServer) -> list
 
   if "imdb_id" in req.metadata:
     res = await mcp.direct_call_tool("find_by_imdb_id", {"imdb_id": req.metadata["imdb_id"]})
-    req.metadata["find_by_imdb_id_result"] = res
-    if "tv_results" in res:
+
+    # Extract and store only the relevant result
+    if "tv_results" in res and len(res["tv_results"]) > 0:
+      req.metadata["find_by_imdb_id_result"] = res["tv_results"][0]
+      req.metadata["original_language"] = res["tv_results"][0].get("original_language")
       return [Category.tv_series]
-    if "movie_results" in res:
+    if "movie_results" in res and len(res["movie_results"]) > 0:
+      req.metadata["find_by_imdb_id_result"] = res["movie_results"][0]
+      req.metadata["original_language"] = res["movie_results"][0].get("original_language")
       return [Category.movie]
 
     return [Category.tv_series, Category.movie]
@@ -107,8 +112,8 @@ if __name__ == "__main__":
 
     req = PlanRequest(
       files=[],
-      # metadata={"imdb_id": "tt0369179"},
-      metadata={"dmm_id": "pred00374"},
+      metadata={"imdb_id": "tt0369179"},
+      # metadata={"dmm_id": "pred00374"},
     )
 
     mcp = metadataMcp()
