@@ -132,5 +132,5 @@ def iso639_to_lang_enum(iso639_code: str) -> Language:
       return Language.Korean
     else:
       return Language.Others
-  except:
+  except (ValueError, TypeError, AttributeError):
     return Language.Others
