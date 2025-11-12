@@ -48,7 +48,7 @@ class IsMovieResponse(BaseModel):
     description="Name of Movie in Simpilfied Chinese 简体中文"
   )
   release_year: int | None
-  language: Language
+  language: Language = Field(description="Chinese|English|Japanese|Korean|Others")
   reason: str = Field(description="provide brief reasoning for your decision")
 
 
@@ -93,7 +93,7 @@ class IsTVSeriesResponse(BaseModel):
     description="Name of TV Series in Simpilfied Chinese 简体中文"
   )
   the_first_season_release_year: int | None
-  language: Language
+  language: Language = Field(description="Chinese|English|Japanese|Korean|Others")
   reason: str = Field(description="provide brief reasoning for your decision")
 
 
