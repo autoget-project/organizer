@@ -1,7 +1,7 @@
 from os import path
 from typing import Tuple
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunUsage, ToolOutput
 from pydantic_ai.mcp import MCPServer
 
@@ -13,12 +13,12 @@ from .subtitle_mover import move as subtitle_move
 from .utils import filter_video_files_sub_files_and_others
 
 _INSTRUCTION = """\
-You are a specialized file mover for bango porn videos. Your task is to create a movement plan for video files based on their bango (番号) identifiers.
+You are a specialized file mover for bango porn videos. Your task is to generate new filenames for video files based on their bango (番号) identifiers.
 
 ## Core Rules:
-1. **Default behavior**: Move each file to its target directory and rename using the bango.ext format
+1. **Default behavior**: Generate new filename using the bango.ext format
 2. **Bango extraction**: Extract the bango (番号) from filenames - these are typically alphanumeric codes like "SSIS-698", "FC2-1234567", etc.
-3. **Target directory**: Each file has a pre-determined target_dir where it should be moved
+3. **Filename only**: Only return the new filename, not the full path
 
 ## Special Cases:
 
@@ -40,10 +40,7 @@ You are a specialized file mover for bango porn videos. Your task is to create a
   - "SSIS-698-C.mp4" → "SSIS-698.part.3.mp4" (unless it's the special Case 1)
 
 ## Output Format:
-For each file, output a PlanAction with:
-- file: the original file path
-- action: "move"
-- target: the full path where the file should be moved (target_dir + new_filename)
+For each file, return the new filename only (not the full path).
 
 ## Important Notes:
 - Always preserve the original file extension
@@ -53,12 +50,21 @@ For each file, output a PlanAction with:
 """
 
 
+class FilenameMapping(BaseModel):
+  file: str = Field(description="Original file path")
+  new_filename: str = Field(description="New filename only (not full path)")
+
+
+class FilenameResponse(BaseModel):
+  filenames: list[FilenameMapping]
+
+
 def mover() -> Agent:
   return Agent(
     name="bango_porn_video_mover",
     model=model(),
     instructions=_INSTRUCTION,
-    output_type=ToolOutput(MoverResponse),
+    output_type=ToolOutput(FilenameResponse),
   )
 
 
@@ -104,10 +110,22 @@ async def move(
   res = await a.run(video_request.model_dump_json())
   total_usage.incr(res.usage())
 
-  _, subfiles, others = filter_video_files_sub_files_and_others(req.request.files)
-
   # Initialize plan with video movement results
-  plan = res.output.plan if res.output.plan else []
+  plan = []
+  if res.output and res.output.filenames:
+    for mapping in res.output.filenames:
+      # Find the corresponding target directory from video_request
+      target_dir = None
+      for vp in video_request.files:
+        if vp.file == mapping.file:
+          target_dir = vp.target_dir
+          break
+
+      if target_dir:
+        target_path = path.join(target_dir, mapping.new_filename)
+        plan.append(PlanAction(file=mapping.file, action="move", target=target_path))
+
+  _, subfiles, others = filter_video_files_sub_files_and_others(req.request.files)
 
   # Handle subtitle files
   if subfiles:
