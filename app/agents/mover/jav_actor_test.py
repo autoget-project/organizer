@@ -204,6 +204,12 @@ def test_add_actor_alias_empty_alias_list(tmp_path):
 
 def test_search_alias():
   """Test searching for aliases of actor 藤森里穂 and verifying 井上遥香 is included"""
+  import os
+
+  # Skip test if FlareSolverr URL is not configured
+  if not os.getenv("FLARESOLVERR_URL"):
+    pytest.skip("FLARESOLVERR_URL environment variable not set")
+
   aliases = search_alias("藤森里穂")
 
   # Verify that the result contains some aliases
@@ -270,6 +276,7 @@ async def test_find_a_dir_for_list_of_actor_name_existing_actor(tmp_path):
 
 
 @pytest.mark.skipif(model() is None, reason="No env var for ai model")
+@pytest.mark.skipif(not os.getenv("FLARESOLVERR_URL"), reason="FLARESOLVERR_URL not set")
 @pytest.mark.asyncio
 async def test_find_a_dir_for_list_of_actor_name_new_actor(tmp_path):
   """Test find_a_dir_for_list_of_actor_name when actor is new and needs AI search"""
@@ -309,6 +316,7 @@ async def test_find_a_dir_for_list_of_actor_name_new_actor(tmp_path):
 
 
 @pytest.mark.skipif(model() is None, reason="No env var for ai model")
+@pytest.mark.skipif(not os.getenv("FLARESOLVERR_URL"), reason="FLARESOLVERR_URL not set")
 @pytest.mark.asyncio
 async def test_find_a_dir_for_list_of_actor_name_multiple_new_actors(tmp_path):
   """Test find_a_dir_for_list_of_actor_name with multiple new actor names"""
@@ -349,6 +357,7 @@ async def test_find_a_dir_for_list_of_actor_name_multiple_new_actors(tmp_path):
 
 
 @pytest.mark.skipif(model() is None, reason="No env var for ai model")
+@pytest.mark.skipif(not os.getenv("FLARESOLVERR_URL"), reason="FLARESOLVERR_URL not set")
 @pytest.mark.asyncio
 async def test_find_a_dir_for_list_of_actor_name_existing_actor_got_new_name(tmp_path):
   """Test find_a_dir_for_list_of_actor_name with an existing got new names"""

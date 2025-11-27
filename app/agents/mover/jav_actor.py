@@ -105,7 +105,7 @@ def add_actor_alias(name: str, alias: list[str]) -> str:
 
 def search_alias(name: str) -> list[str]:
   """
-  Search for actor aliases from JAVDB.
+  Search for actor aliases from JAVDB using FlareSolverr.
 
   Args:
       name: The actor name to search for
@@ -119,15 +119,33 @@ def search_alias(name: str) -> list[str]:
   encoded_name = urllib.parse.quote(name)
   search_url = f"{base_url}&q={encoded_name}"
 
-  headers = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
-  }
+  flaresolverr_url = os.getenv("FLARESOLVERR_URL")
+  if not flaresolverr_url:
+    _LOGGER.error("FLARESOLVERR_URL environment variable is not set")
+    return []
+
+  # FlareSolverr request payload
+  flaresolverr_payload = {"cmd": "request.get", "url": search_url, "maxTimeout": 60000}
 
   try:
-    response = requests.get(search_url, headers=headers)
+    # Make request through FlareSolverr
+    response = requests.post(flaresolverr_url, json=flaresolverr_payload, timeout=70)
     response.raise_for_status()
 
-    soup = BeautifulSoup(response.text, "html.parser")
+    flaresolverr_result = response.json()
+
+    # Check if FlareSolverr request was successful
+    if flaresolverr_result.get("status") != "ok":
+      _LOGGER.error(f"FlareSolverr request failed: {flaresolverr_result}")
+      return []
+
+    # Extract the HTML content from FlareSolverr response
+    html_content = flaresolverr_result.get("solution", {}).get("response")
+    if not html_content:
+      _LOGGER.error("No HTML content in FlareSolverr response")
+      return []
+
+    soup = BeautifulSoup(html_content, "html.parser")
 
     # Find the first actor box and extract aliases from title attribute
     aliases = []
@@ -142,7 +160,7 @@ def search_alias(name: str) -> list[str]:
     return aliases
 
   except Exception as e:
-    _LOGGER.error(f"Error searching for actor aliases: {e}")
+    _LOGGER.error(f"Error searching for actor aliases via FlareSolverr: {e}")
     return []
 
 

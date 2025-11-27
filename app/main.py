@@ -53,6 +53,7 @@ def startup_check():
   check_env_vars("DOWNLOAD_COMPLETED_DIR")
   check_env_vars("TARGET_DIR")
   check_env_vars("JAV_ACTOR_FILE")
+  check_env_vars("FLARESOLVERR_URL")
 
   for t in TargetDir:
     check_dir(os.path.join(os.getenv("TARGET_DIR"), t.name))
