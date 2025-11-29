@@ -45,11 +45,11 @@ class PlanAction(BaseModel):
 
 
 class MoverResponse(BaseModel):
-  plan: List[PlanAction] = None
+  plan: List[PlanAction] = []
 
 
 class PlanResponse(BaseModel):
-  plan: List[PlanAction] = None
+  plan: List[PlanAction] = []
   error: str | None = None
 
 
@@ -120,6 +120,14 @@ SUB_EXT = {".srt", ".sub", ".ass", ".ssa", ".vtt"}
 
 def iso639_to_lang_enum(iso639_code: str) -> Language:
   """Convert ISO 639-1 language code to Language enum."""
+  # Map common invalid codes to valid ISO 639-1 codes
+  code_mapping = {
+    "cn": "zh",  # Chinese
+  }
+
+  # Convert invalid codes to valid ones
+  iso639_code = code_mapping.get(iso639_code, iso639_code)
+
   try:
     lang = Lang(iso639_code)
     if lang.name == "English":
