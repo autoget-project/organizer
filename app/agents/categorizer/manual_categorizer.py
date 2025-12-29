@@ -1,6 +1,7 @@
 import os
 import re
 
+from pydantic_ai.exceptions import ModelRetry
 from pydantic_ai.mcp import MCPServer
 
 from ..models import Category, PlanRequest
@@ -70,9 +71,13 @@ async def categorize_by_metadata_hints(req: PlanRequest, mcp: MCPServer) -> list
     return []
 
   if "dmm_id" in req.metadata:
-    res = await mcp.direct_call_tool("search_japanese_porn", {"jav_id": req.metadata["dmm_id"]})
-    req.metadata["search_japanese_porn_result"] = res
-    return [Category.bango_porn]
+    try:
+      res = await mcp.direct_call_tool("search_japanese_porn", {"jav_id": req.metadata["dmm_id"]})
+      req.metadata["search_japanese_porn_result"] = res
+      return [Category.bango_porn]
+    except ModelRetry:
+      # the dmm_id from metadata maybe wrong. then just return empty array.
+      return []
 
   if "imdb_id" in req.metadata:
     res = await mcp.direct_call_tool("find_by_imdb_id", {"imdb_id": req.metadata["imdb_id"]})
