@@ -60,5 +60,5 @@ async def test_agent_tool_use():
     prepare_tools=allowedTools(["web_search"]),
   )
 
-  got = await agent.run_async("Spec of AMD Ryzen Al Max+ 395")
+  got = await agent.run("Spec of AMD Ryzen Al Max+ 395")
   assert got.output == CPUSpec(core_count=16, thread_count=32, release_year=2025)
