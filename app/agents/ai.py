@@ -25,7 +25,7 @@ def allowedTools(names: list[str]) -> ToolsPrepareFunc[None]:
 
 
 def model() -> Model | str | None:
-  if os.getenv("GROK_API_KEY"):
+  if os.getenv("XAI_API_KEY"):
     return os.getenv("MODEL")
 
   if os.getenv("LM_STUDIO_API_BASE"):

@@ -46,17 +46,17 @@ async def test_tv_series_mover_agent():
       PlanAction(
         file="My.Date.with.a.Vampire.Season.02.2000/My.Date.with.a.Vampire.Season.02.2000.EP1.mkv",
         action="move",
-        target="tv_series/chinese/我和僵尸有个约会 (1998)/Season 02/我和僵尸有个约会 (1998) S02E01.mkv",
+        target="tv_series/Chinese/我和僵尸有个约会 (1998)/Season 02/我和僵尸有个约会 (1998) S02E01.mkv",
       ),
       PlanAction(
         file="My.Date.with.a.Vampire.Season.02.2000/My.Date.with.a.Vampire.Season.02.2000.EP2.mkv",
         action="move",
-        target="tv_series/chinese/我和僵尸有个约会 (1998)/Season 02/我和僵尸有个约会 (1998) S02E02.mkv",
+        target="tv_series/Chinese/我和僵尸有个约会 (1998)/Season 02/我和僵尸有个约会 (1998) S02E02.mkv",
       ),
       PlanAction(
         file="My.Date.with.a.Vampire.Season.02.2000/My.Date.with.a.Vampire.Season.02.2000.EP1.en.ass",
         action="move",
-        target="tv_series/chinese/我和僵尸有个约会 (1998)/Season 02/我和僵尸有个约会 (1998) S02E01.English.eng.ass",
+        target="tv_series/Chinese/我和僵尸有个约会 (1998)/Season 02/我和僵尸有个约会 (1998) S02E01.English.eng.ass",
       ),
       PlanAction(
         file="My.Date.with.a.Vampire.Season.02.2000/cover.jpg", action="skip", target=None

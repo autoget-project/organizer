@@ -313,7 +313,7 @@ class TestCategorizeByMetadataHints:
     mcp = metadataMcp()
     result = await categorize_by_metadata_hints(req, mcp)
 
-    assert result == Category.bango_porn
+    assert result == [Category.bango_porn]
     # Check that search result was stored in metadata
     assert "search_japanese_porn_result" in req.metadata
 
@@ -368,8 +368,8 @@ class TestCategorizeByMetadataHints:
     result = await categorize_by_metadata_hints(req, mcp)
 
     assert set(result) == {Category.movie, Category.tv_series}
-    # Check that search result was stored in metadata
-    assert "find_by_imdb_id_result" in req.metadata
+    # find_by_imdb_id_result is NOT stored when no results are found
+    assert "find_by_imdb_id_result" not in req.metadata
 
   def test_organizer_category_returns_specified_categories(self):
     """Test that metadata with organizer_category returns the specified categories."""

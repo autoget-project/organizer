@@ -45,12 +45,12 @@ async def test_movie_mover_agent():
       PlanAction(
         file="The.Mad.Phoenix.1997/The.Mad.Phoenix.1997.mkv",
         action="move",
-        target="movie/chinese/南海十三郎 (1997)/南海十三郎 (1997).mkv",
+        target="movie/Chinese/南海十三郎 (1997)/南海十三郎 (1997).mkv",
       ),
       PlanAction(
         file="The.Mad.Phoenix.1997/The.Mad.Phoenix.en.ass",
         action="move",
-        target="movie/chinese/南海十三郎 (1997)/南海十三郎 (1997).English.eng.ass",
+        target="movie/Chinese/南海十三郎 (1997)/南海十三郎 (1997).English.eng.ass",
       ),
       PlanAction(
         file="The.Mad.Phoenix.1997/cover.jpg",
