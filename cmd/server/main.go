@@ -39,7 +39,7 @@ func main() {
 	}
 
 	mcpClient := mcp.NewClient(cfg.MetadataMCP)
-	actorStore := stage2enricher.NewActorStore(cfg.JavActorFile, cfg.FlareSolverrURL, provider, mcpClient)
+	actorStore := stage2enricher.NewActorStore(cfg.JavActorFile, cfg.FlareSolverrURL, provider)
 	enricher := stage2enricher.NewEnricher(mcpClient, actorStore, provider)
 	pipe := pipeline.NewPipeline(provider, enricher, cfg.DownloadCompletedDir)
 	exec := service.NewExecutor(cfg.DownloadCompletedDir, cfg.TargetDir)
@@ -58,8 +58,10 @@ func main() {
 		port = defaultPort
 	}
 	srv := &http.Server{
-		Addr:    ":" + port,
-		Handler: mux,
+		Addr:              ":" + port,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second,
 	}
 
 	// Graceful shutdown on SIGINT / SIGTERM.

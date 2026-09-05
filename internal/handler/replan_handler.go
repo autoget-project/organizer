@@ -61,11 +61,11 @@ func (h *ReplanHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	items, err := h.callReplanLLM(r.Context(), req)
 	if err != nil {
 		msg := err.Error()
-		writeJSON(w, http.StatusInternalServerError, model.PlanResponse{Plan: nil, Error: &msg})
+		writeJSON(w, http.StatusInternalServerError, model.PlanResponse{Plan: []model.PlanAction{}, Error: &msg})
 		return
 	}
 
-	plan := itemsToActions(items, req.Files)
+	plan := stage3planner.ItemsToActions(items, req.Files)
 	writeJSON(w, http.StatusOK, model.PlanResponse{
 		Plan:  stage4postprocess.SanitizePlan(plan),
 		Error: nil,
@@ -133,6 +133,10 @@ func inferDomainFromPreviousPlan(plan []model.PlanAction) (replanDomain, bool) {
 }
 
 // domainRoot returns the mandatory root prefix for the given domain.
+// Deliberate naming convention: all bango-family roots (jav/, jav_vr/,
+// madou/) are coerced to the canonical "jav/" root in replan prompts — the
+// replan LLM only needs the library-family prefix, and the previous plan's
+// exact root is already visible to it via previous_plan.
 func domainRoot(domain replanDomain) string {
 	switch domain {
 	case domainTV:
@@ -158,35 +162,6 @@ func domainReplanPrompt(domain replanDomain) string {
 	default:
 		return genericReplanPrompt
 	}
-}
-
-// itemsToActions converts LLM file mappings into PlanActions preserving the
-// input order; input files never mentioned by the LLM are explicitly marked
-// skip so every file is accounted for in the final plan.
-func itemsToActions(items []stage3planner.FilePlanItem, inputs []string) []model.PlanAction {
-	byFile := make(map[string]stage3planner.FilePlanItem, len(items))
-	for _, item := range items {
-		if item.File == "" {
-			continue
-		}
-		byFile[item.File] = item
-	}
-
-	actions := make([]model.PlanAction, 0, len(inputs))
-	for _, f := range inputs {
-		item, ok := byFile[f]
-		if !ok {
-			actions = append(actions, model.PlanAction{File: f, Action: "skip"})
-			continue
-		}
-		if item.Action == "move" && item.Target != "" {
-			target := item.Target
-			actions = append(actions, model.PlanAction{File: f, Action: "move", Target: &target})
-			continue
-		}
-		actions = append(actions, model.PlanAction{File: f, Action: "skip"})
-	}
-	return actions
 }
 
 const tvReplanPrompt = `Task: You are an AI system that revises a TV series file organization plan based on user feedback.

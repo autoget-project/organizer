@@ -10,6 +10,7 @@ import (
 
 	"organizer/internal/ai"
 	"organizer/internal/model"
+	"organizer/internal/ptr"
 )
 
 // BangoFilenameMapping maps one video file to its new canonical filename.
@@ -71,6 +72,11 @@ func BangoActorDir(meta model.EnrichedMetadata) string {
 // filename canonicalization (LLM).
 func (p *BangoPlanner) Plan(ctx context.Context, pc *PlannerContext) ([]model.PlanAction, error) {
 	videos, _, others := partitionFiles(pc.Files)
+	if len(videos) == 0 {
+		// No videos: skip the wasted LLM call; garbage files stay skip actions
+		// and subtitles are handled by Stage 4.
+		return skipOthers(others), nil
+	}
 	targetDir := ResolveBangoTargetDir(pc.Metadata)
 
 	input := map[string]interface{}{
@@ -104,7 +110,7 @@ func (p *BangoPlanner) Plan(ctx context.Context, pc *PlannerContext) ([]model.Pl
 			actions = append(actions, model.PlanAction{
 				File:   v,
 				Action: "move",
-				Target: strPtr(path.Join(targetDir, name)),
+				Target: ptr.Str(path.Join(targetDir, name)),
 			})
 			continue
 		}

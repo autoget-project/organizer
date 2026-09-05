@@ -22,6 +22,13 @@ type APIPlanRequest struct {
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
+// MoverResponse is the Go counterpart of the Python MoverResponse DTO
+// (internal mover output). Planners that already return []PlanAction
+// use it implicitly; it exists for wire/contract parity.
+type MoverResponse struct {
+	Plan []PlanAction `json:"plan"`
+}
+
 // PlanResponse represents the REST API response for creating a plan.
 type PlanResponse struct {
 	Plan  []PlanAction `json:"plan"`

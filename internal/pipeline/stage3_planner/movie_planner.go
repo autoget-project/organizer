@@ -33,6 +33,11 @@ func NewMoviePlanner(provider ai.Provider) *MoviePlanner {
 // Plan generates the Jellyfin-compatible move plan for movie videos.
 func (p *MoviePlanner) Plan(ctx context.Context, pc *PlannerContext) ([]model.PlanAction, error) {
 	videos, _, others := partitionFiles(pc.Files)
+	if len(videos) == 0 {
+		// No videos: skip the wasted LLM call; garbage files stay skip actions
+		// and subtitles are handled by Stage 4.
+		return skipOthers(others), nil
+	}
 
 	root := movieTargetRoot(pc.Metadata.IsAnim)
 	lang := languageSegment(pc.Metadata)
@@ -60,7 +65,7 @@ func (p *MoviePlanner) Plan(ctx context.Context, pc *PlannerContext) ([]model.Pl
 		return nil, fmt.Errorf("movie planner llm generation failed: %w", err)
 	}
 
-	actions := llmItemsToActions(resp.Plan, videos)
+	actions := ItemsToActions(resp.Plan, videos)
 	for _, o := range others {
 		actions = append(actions, model.PlanAction{File: o, Action: "skip"})
 	}

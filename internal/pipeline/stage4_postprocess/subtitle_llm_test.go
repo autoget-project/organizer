@@ -9,6 +9,7 @@ import (
 
 	"organizer/internal/ai/mock"
 	"organizer/internal/model"
+	"organizer/internal/ptr"
 )
 
 func TestReadSubtitlePreview_First30LinesAndPathJoin_L8(t *testing.T) {
@@ -106,7 +107,7 @@ func TestSubtitlePlanner_PairingWithJpnNaming(t *testing.T) {
 		{
 			File:   "ep1.mkv",
 			Action: "move",
-			Target: strPtr("anim_tv_series/Japanese/某动画 (2023)/Season 01/某动画 (2023) S01E01.mkv"),
+			Target: ptr.Str("anim_tv_series/Japanese/某动画 (2023)/Season 01/某动画 (2023) S01E01.mkv"),
 		},
 	}
 
@@ -147,7 +148,7 @@ func TestSubtitlePlanner_UnmatchedAndUncoveredSkipped(t *testing.T) {
 
 	planner := NewSubtitlePlanner(prov, downloadDir)
 	videoPlan := []model.PlanAction{
-		{File: "d1/movie.mkv", Action: "move", Target: strPtr("movie/X (2000)/X (2000).mkv")},
+		{File: "d1/movie.mkv", Action: "move", Target: ptr.Str("movie/X (2000)/X (2000).mkv")},
 	}
 
 	actions, err := planner.PairSubtitles(context.Background(), "d1", []string{"d1/orphan.srt", "d1/ghost.srt", "d1/uncovered.srt"}, videoPlan)

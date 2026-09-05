@@ -36,7 +36,7 @@ func (h *PlanHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Fatal internal failure -> 500 while preserving the response shape.
 		msg := err.Error()
-		writeJSON(w, http.StatusInternalServerError, model.PlanResponse{Plan: nil, Error: &msg})
+		writeJSON(w, http.StatusInternalServerError, model.PlanResponse{Plan: []model.PlanAction{}, Error: &msg})
 		return
 	}
 

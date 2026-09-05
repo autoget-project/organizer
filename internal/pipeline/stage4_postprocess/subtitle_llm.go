@@ -10,6 +10,7 @@ import (
 
 	"organizer/internal/ai"
 	"organizer/internal/model"
+	"organizer/internal/ptr"
 )
 
 // SubtitlePreviewLines is the number of leading lines read from each subtitle
@@ -47,8 +48,12 @@ func NewSubtitlePlanner(provider ai.Provider, downloadDir string) *SubtitlePlann
 // ReadSubtitlePreview joins DOWNLOAD_COMPLETED_DIR/{dir}/{file} (L8) and
 // returns the first SubtitlePreviewLines lines with whitespace trimmed. Read
 // failures are returned as error text so the LLM treats the file as corrupted.
+// dir/file are validated to stay under downloadDir (traversal defense).
 func ReadSubtitlePreview(downloadDir, dir, file string) string {
-	fullPath := filepath.Join(downloadDir, dir, file)
+	fullPath, err := safeSubtitleJoin(downloadDir, dir, file)
+	if err != nil {
+		return fmt.Sprintf("Error reading file %s: %v", file, err)
+	}
 	data, err := os.ReadFile(fullPath)
 	if err != nil {
 		return fmt.Sprintf("Error reading file %s: %v", file, err)
@@ -103,6 +108,11 @@ func (sp *SubtitlePlanner) PairSubtitles(ctx context.Context, dir string, subtit
 		if item.File == "" {
 			continue
 		}
+		// Dedupe by file (keep first) to defend the exactly-once contract
+		// against duplicate LLM entries.
+		if _, dup := covered[item.File]; dup {
+			continue
+		}
 		covered[item.File] = struct{}{}
 		if item.Action != "move" || item.MatchedVideo == "" {
 			actions = append(actions, model.PlanAction{File: item.File, Action: "skip"})
@@ -117,7 +127,7 @@ func (sp *SubtitlePlanner) PairSubtitles(ctx context.Context, dir string, subtit
 		actions = append(actions, model.PlanAction{
 			File:   item.File,
 			Action: "move",
-			Target: strPtr(SubtitleTargetPath(videoTargetPath, lang, strings.ToLower(filepath.Ext(item.File)))),
+			Target: ptr.Str(SubtitleTargetPath(videoTargetPath, lang, strings.ToLower(filepath.Ext(item.File)))),
 		})
 	}
 
@@ -161,8 +171,25 @@ func subtitleLanguageParts(lang model.Language) (label, iso string) {
 	}
 }
 
-// strPtr returns a pointer to the given string.
-func strPtr(s string) *string { return &s }
+// safeSubtitleJoin joins downloadDir/{dir}/{file} after verifying the cleaned
+// path stays under downloadDir, rejecting absolute paths and ".." traversal.
+func safeSubtitleJoin(downloadDir, dir, file string) (string, error) {
+	for _, part := range []string{dir, file} {
+		if filepath.IsAbs(part) {
+			return "", fmt.Errorf("absolute path %q is not allowed", part)
+		}
+		cleaned := filepath.Clean(part)
+		if cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+			return "", fmt.Errorf("path %q escapes the download directory", part)
+		}
+	}
+	joined := filepath.Clean(filepath.Join(downloadDir, dir, file))
+	base := filepath.Clean(downloadDir)
+	if !strings.HasPrefix(joined, base+string(filepath.Separator)) {
+		return "", fmt.Errorf("path %q escapes the download directory", file)
+	}
+	return joined, nil
+}
 
 const subtitlePlannerPrompt = `Task: You are an AI system that organizes subtitle files to match their corresponding video files that have already been planned for movement.
 

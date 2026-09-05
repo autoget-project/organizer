@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"organizer/internal/model"
+	"organizer/internal/ptr"
 )
 
 // SimplePlan archives the 5 simple categories (photobook, audio_book, book,
@@ -15,6 +16,10 @@ import (
 //     target = {category}/{hash_dir};
 //  3. files spread across sub directories: each sub dir is archived with the
 //     meaningless hash layer stripped, file = {hash_dir}/{d}, target = {category}/{d}.
+//
+// Assumption: inputs follow the real torrent layout "{hash}/..." (every file
+// path contains at least one "/"). Multiple top-level flat files (no "/")
+// yield an empty plan instead of the legacy Python IndexError.
 func SimplePlan(cat model.Category, files []string) []model.PlanAction {
 	categoryDir := string(cat)
 
@@ -24,7 +29,7 @@ func SimplePlan(cat model.Category, files []string) []model.PlanAction {
 		return []model.PlanAction{{
 			File:   f,
 			Action: "move",
-			Target: strPtr(path.Join(categoryDir, filepath.Base(f))),
+			Target: ptr.Str(path.Join(categoryDir, filepath.Base(f))),
 		}}
 	}
 
@@ -51,7 +56,7 @@ func SimplePlan(cat model.Category, files []string) []model.PlanAction {
 		return []model.PlanAction{{
 			File:   hashDir,
 			Action: "move",
-			Target: strPtr(path.Join(categoryDir, hashDir)),
+			Target: ptr.Str(path.Join(categoryDir, hashDir)),
 		}}
 	}
 
@@ -61,7 +66,7 @@ func SimplePlan(cat model.Category, files []string) []model.PlanAction {
 		actions = append(actions, model.PlanAction{
 			File:   hashDir + "/" + d,
 			Action: "move",
-			Target: strPtr(path.Join(categoryDir, d)),
+			Target: ptr.Str(path.Join(categoryDir, d)),
 		})
 	}
 	return actions

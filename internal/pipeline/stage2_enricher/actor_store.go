@@ -17,7 +17,6 @@ import (
 
 	"golang.org/x/sys/unix"
 	"organizer/internal/ai"
-	"organizer/internal/mcp"
 )
 
 const (
@@ -34,23 +33,22 @@ type ActorStore struct {
 	filePath        string
 	flareSolverrURL string
 	aiProvider      ai.Provider
-	mcpClient       mcp.Client
 	httpClient      *http.Client
 }
 
 // NewActorStore creates a new ActorStore instance.
-func NewActorStore(filePath, flareSolverrURL string, aiProv ai.Provider, mcpClient mcp.Client) *ActorStore {
+func NewActorStore(filePath, flareSolverrURL string, aiProv ai.Provider) *ActorStore {
 	return &ActorStore{
 		filePath:        filePath,
 		flareSolverrURL: flareSolverrURL,
 		aiProvider:      aiProv,
-		mcpClient:       mcpClient,
 		httpClient:      &http.Client{Timeout: 70 * time.Second},
 	}
 }
 
 // FindDir looks up if any of the provided actor names matches an existing actor directory in actor.json.
-// Returns (directoryName, true) if found, or ("", false) if none match.
+// Returns (directoryName, true, err) if found, ("", false, nil) if none match.
+// Note: the error return intentionally extends the spec's (string, bool) shape.
 func (s *ActorStore) FindDir(actorNames []string) (string, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

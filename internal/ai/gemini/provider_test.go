@@ -26,8 +26,8 @@ func TestGeminiProvider_Success(t *testing.T) {
 		if !strings.Contains(r.URL.Path, "generateContent") {
 			t.Errorf("expected path to contain generateContent, got %s", r.URL.Path)
 		}
-		if r.URL.Query().Get("key") != "test-gemini-key" {
-			t.Errorf("expected query key=test-gemini-key, got %s", r.URL.Query().Get("key"))
+		if r.Header.Get("x-goog-api-key") != "test-gemini-key" {
+			t.Errorf("expected x-goog-api-key header test-gemini-key, got %s", r.Header.Get("x-goog-api-key"))
 		}
 
 		var reqBody map[string]interface{}

@@ -39,6 +39,9 @@ func TestGrokProvider_Success(t *testing.T) {
 		}
 
 		// Verify model and temperature
+		if reqBody["model"] != "grok-test" {
+			t.Errorf("expected model grok-test, got %v", reqBody["model"])
+		}
 		if reqBody["temperature"].(float64) != 0.1 {
 			t.Errorf("expected temperature 0.1, got %v", reqBody["temperature"])
 		}
@@ -46,6 +49,13 @@ func TestGrokProvider_Success(t *testing.T) {
 		respFormat := reqBody["response_format"].(map[string]interface{})
 		if respFormat["type"] != "json_schema" {
 			t.Errorf("expected response_format.type json_schema, got %v", respFormat["type"])
+		}
+		jsonSchema := respFormat["json_schema"].(map[string]interface{})
+		if jsonSchema["strict"] != true {
+			t.Errorf("expected response_format.json_schema.strict true, got %v", jsonSchema["strict"])
+		}
+		if jsonSchema["name"] == nil || jsonSchema["name"] == "" {
+			t.Errorf("expected response_format.json_schema.name to be set, got %v", jsonSchema["name"])
 		}
 
 		resp := map[string]interface{}{

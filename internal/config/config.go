@@ -105,14 +105,29 @@ func ResolveProvider(modelName, xaiKey, geminiKey string) (string, error) {
 
 	lowerModel := strings.ToLower(modelName)
 
-	if strings.HasPrefix(lowerModel, "xai:") || strings.Contains(lowerModel, "grok") {
+	// Explicit provider prefixes take precedence over substring keyword matches
+	// (e.g. "gemini:grok-4" must resolve to "gemini", not "grok").
+	if strings.HasPrefix(lowerModel, "xai:") {
+		if xaiKey == "" {
+			return "", fmt.Errorf("model %q requires XAI_API_KEY, but it is not set", modelName)
+		}
+		return "grok", nil
+	}
+	if strings.HasPrefix(lowerModel, "gemini:") {
+		if geminiKey == "" {
+			return "", fmt.Errorf("model %q requires GEMINI_API_KEY, but it is not set", modelName)
+		}
+		return "gemini", nil
+	}
+
+	if strings.Contains(lowerModel, "grok") {
 		if xaiKey == "" {
 			return "", fmt.Errorf("model %q requires XAI_API_KEY, but it is not set", modelName)
 		}
 		return "grok", nil
 	}
 
-	if strings.HasPrefix(lowerModel, "gemini:") || strings.Contains(lowerModel, "gemini") {
+	if strings.Contains(lowerModel, "gemini") {
 		if geminiKey == "" {
 			return "", fmt.Errorf("model %q requires GEMINI_API_KEY, but it is not set", modelName)
 		}
@@ -131,6 +146,8 @@ func ResolveProvider(modelName, xaiKey, geminiKey string) (string, error) {
 }
 
 // checkDirWritable checks if path exists, is a directory, and has write permission.
+// Note: uses unix.Access, so this package targets POSIX platforms only (fine for
+// the Linux deployment target; revisit if Windows CI is ever added).
 func checkDirWritable(path string) error {
 	info, err := os.Stat(path)
 	if err != nil {

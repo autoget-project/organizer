@@ -34,6 +34,7 @@ import (
 	"organizer/internal/model"
 	"organizer/internal/pipeline"
 	"organizer/internal/pipeline/stage2_enricher"
+	"organizer/internal/ptr"
 	"organizer/internal/service"
 	"organizer/internal/testutil"
 )
@@ -45,7 +46,6 @@ type sandbox struct {
 	server      *httptest.Server
 	downloadDir string
 	targetDir   string
-	provider    ai.Provider
 }
 
 // newSandbox wires the full server around the given provider inside a fresh
@@ -80,7 +80,6 @@ func newSandbox(t *testing.T, prov ai.Provider) *sandbox {
 		server:      server,
 		downloadDir: downloadDir,
 		targetDir:   targetDir,
-		provider:    prov,
 	}
 }
 
@@ -179,11 +178,9 @@ func assertPlanContract(t *testing.T, code int, body string, want map[string]mod
 	}
 }
 
-func strPtr(s string) *string { return &s }
-
 // wantMove / wantSkip build the expected action entries.
 func wantMove(target string) model.PlanAction {
-	return model.PlanAction{Action: "move", Target: strPtr(target)}
+	return model.PlanAction{Action: "move", Target: ptr.Str(target)}
 }
 func wantSkip() model.PlanAction { return model.PlanAction{Action: "skip"} }
 
@@ -212,7 +209,7 @@ func TestE2E_LegacyPythonExecutePlan(t *testing.T) {
 	code, body := s.postJSON(t, "/v1/execute", model.APIExecuteRequest{
 		Dir: "subfolder",
 		Plan: []model.PlanAction{
-			{File: "test_file.txt", Action: "move", Target: strPtr("documents/test_file.txt")},
+			{File: "test_file.txt", Action: "move", Target: ptr.Str("documents/test_file.txt")},
 		},
 	})
 	if code != http.StatusOK {
@@ -244,7 +241,7 @@ func TestE2E_LegacyPythonExecutePlanFailed(t *testing.T) {
 	code, body := s.postJSON(t, "/v1/execute", model.APIExecuteRequest{
 		Dir: "subfolder",
 		Plan: []model.PlanAction{
-			{File: "non_existent_file.txt", Action: "move", Target: strPtr("documents/non_existent_file.txt")},
+			{File: "non_existent_file.txt", Action: "move", Target: ptr.Str("documents/non_existent_file.txt")},
 		},
 	})
 	if code != http.StatusBadRequest {
@@ -712,7 +709,7 @@ func TestE2E_DirectoryLevelAtomicMoveLifecycle(t *testing.T) {
 			// Execute: directory-level atomic move lands in TARGET_DIR.
 			code, body = s.postJSON(t, "/v1/execute", model.APIExecuteRequest{
 				Dir:  tc.dir,
-				Plan: []model.PlanAction{{File: hashDir, Action: "move", Target: strPtr(tc.target)}},
+				Plan: []model.PlanAction{{File: hashDir, Action: "move", Target: ptr.Str(tc.target)}},
 			})
 			if code != http.StatusOK {
 				t.Fatalf("execute expected 200, got %d: %s", code, body)

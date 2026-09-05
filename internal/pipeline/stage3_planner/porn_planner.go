@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"organizer/internal/model"
+	"organizer/internal/ptr"
 )
 
 // PornPlanner plans non-bango porn downloads with the local naming fallback
@@ -33,7 +34,7 @@ func (p *PornPlanner) Plan(_ context.Context, pc *PlannerContext) ([]model.PlanA
 		actions = append(actions, model.PlanAction{
 			File:   v,
 			Action: "move",
-			Target: strPtr(path.Join(root, name, name+filepath.Ext(v))),
+			Target: ptr.Str(path.Join(root, name, name+filepath.Ext(v))),
 		})
 	}
 	for _, o := range others {

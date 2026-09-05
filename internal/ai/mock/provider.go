@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
-
-	"organizer/internal/ai"
 )
 
 // CallRecord records details of a call to GenerateStructured.
@@ -18,7 +17,9 @@ type CallRecord struct {
 
 // Rule defines a mock rule that returns a specific structured object or JSON string when Prompt matches.
 type Rule struct {
-	PromptPattern string // Regex or substring
+	// PromptPattern is a regex (IsRegex) or substring to match against the prompt.
+	// An empty pattern with IsRegex:false matches every prompt (catch-all).
+	PromptPattern string
 	IsRegex       bool
 	Response      any // Struct or map or JSON string
 	Error         error
@@ -35,7 +36,7 @@ type Provider struct {
 }
 
 // NewProvider creates a new Mock Provider.
-func NewProvider(opts ...ai.Option) *Provider {
+func NewProvider() *Provider {
 	return &Provider{
 		name:  "mock",
 		calls: make([]CallRecord, 0),
@@ -109,7 +110,7 @@ func (p *Provider) GenerateStructured(ctx context.Context, prompt string, schema
 				matched = re.MatchString(prompt)
 			}
 		} else {
-			matched = (rule.PromptPattern == "" || rule.PromptPattern == prompt || regexp.MustCompile(regexp.QuoteMeta(rule.PromptPattern)).MatchString(prompt))
+			matched = rule.PromptPattern == "" || rule.PromptPattern == prompt || strings.Contains(prompt, rule.PromptPattern)
 		}
 
 		if matched {

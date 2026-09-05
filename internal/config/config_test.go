@@ -83,6 +83,14 @@ func TestResolveProvider(t *testing.T) {
 			wantErr:   false,
 		},
 		{
+			name:      "explicit prefix beats substring keyword (gemini:grok)",
+			model:     "gemini:grok-4",
+			xaiKey:    "xai-123",
+			geminiKey: "gemini-123",
+			expected:  "gemini",
+			wantErr:   false,
+		},
+		{
 			name:      "both keys present without prefix or keyword",
 			model:     "custom-model",
 			xaiKey:    "xai-123",

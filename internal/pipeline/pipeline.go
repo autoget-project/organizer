@@ -21,22 +21,20 @@ import (
 
 // Pipeline is the 4-stage planning orchestrator.
 type Pipeline struct {
-	provider    ai.Provider
-	enricher    *stage2enricher.Enricher
-	router      *stage3planner.Router
-	subtitles   *stage4postprocess.SubtitlePlanner
-	downloadDir string
+	provider  ai.Provider
+	enricher  *stage2enricher.Enricher
+	router    *stage3planner.Router
+	subtitles *stage4postprocess.SubtitlePlanner
 }
 
 // NewPipeline wires the pipeline around the given AI provider and Stage 2
 // enricher (both may be replaced by mocks in offline tests).
 func NewPipeline(provider ai.Provider, enricher *stage2enricher.Enricher, downloadDir string) *Pipeline {
 	return &Pipeline{
-		provider:    provider,
-		enricher:    enricher,
-		router:      stage3planner.NewRouter(provider),
-		subtitles:   stage4postprocess.NewSubtitlePlanner(provider, downloadDir),
-		downloadDir: downloadDir,
+		provider:  provider,
+		enricher:  enricher,
+		router:    stage3planner.NewRouter(provider),
+		subtitles: stage4postprocess.NewSubtitlePlanner(provider, downloadDir),
 	}
 }
 

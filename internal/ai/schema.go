@@ -4,17 +4,21 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 )
 
 // JSONSchema represents a subset of JSON Schema specification suitable for LLM Structured Outputs.
 type JSONSchema struct {
-	Type                 string                `json:"type"`
-	Description          string                `json:"description,omitempty"`
-	Properties           map[string]JSONSchema `json:"properties,omitempty"`
-	Items                *JSONSchema           `json:"items,omitempty"`
-	Required             []string              `json:"required,omitempty"`
-	AdditionalProperties bool                  `json:"additionalProperties"`
-	Enum                 []string              `json:"enum,omitempty"`
+	Type        string                `json:"type"`
+	Description string                `json:"description,omitempty"`
+	Properties  map[string]JSONSchema `json:"properties,omitempty"`
+	Items       *JSONSchema           `json:"items,omitempty"`
+	Required    []string              `json:"required,omitempty"`
+	// AdditionalProperties is emitted as `false` in strict mode, as a value
+	// schema for map fields, or as `true` for interface{}-valued maps; it is
+	// omitted otherwise.
+	AdditionalProperties any      `json:"additionalProperties,omitempty"`
+	Enum                 []string `json:"enum,omitempty"`
 }
 
 // GenerateStrictJSONSchema generates a strict JSON schema where all properties are required and additionalProperties is false.
@@ -45,6 +49,11 @@ func generateSchemaFromType(t reflect.Type, strict bool) (JSONSchema, error) {
 
 	switch t.Kind() {
 	case reflect.Struct:
+		// time.Time has only unexported fields and would otherwise expand to
+		// an empty object schema; serialize it as a string.
+		if t == reflect.TypeOf(time.Time{}) {
+			return JSONSchema{Type: "string"}, nil
+		}
 		return generateStructSchema(t, strict)
 	case reflect.Slice, reflect.Array:
 		elemSchema, err := generateSchemaFromType(t.Elem(), strict)
@@ -65,10 +74,22 @@ func generateSchemaFromType(t reflect.Type, strict bool) (JSONSchema, error) {
 	case reflect.Bool:
 		return JSONSchema{Type: "boolean"}, nil
 	case reflect.Map:
-		return JSONSchema{
-			Type:                 "object",
-			AdditionalProperties: !strict,
-		}, nil
+		if t.Key().Kind() != reflect.String {
+			return JSONSchema{}, fmt.Errorf("unsupported map key type: %s (only string keys are allowed)", t.Key().Kind().String())
+		}
+		elem := t.Elem()
+		for elem.Kind() == reflect.Pointer {
+			elem = elem.Elem()
+		}
+		if elem.Kind() == reflect.Interface {
+			// interface{} values accept any JSON; dynamic keys stay permitted.
+			return JSONSchema{Type: "object", AdditionalProperties: true}, nil
+		}
+		valueSchema, err := generateSchemaFromType(t.Elem(), strict)
+		if err != nil {
+			return JSONSchema{}, fmt.Errorf("map value: %w", err)
+		}
+		return JSONSchema{Type: "object", AdditionalProperties: valueSchema}, nil
 	default:
 		return JSONSchema{}, fmt.Errorf("unsupported type: %s", t.Kind().String())
 	}
@@ -135,9 +156,11 @@ func generateStructSchema(t reflect.Type, strict bool) (JSONSchema, error) {
 	}
 
 	schema := JSONSchema{
-		Type:                 "object",
-		Properties:           properties,
-		AdditionalProperties: !strict,
+		Type:       "object",
+		Properties: properties,
+	}
+	if strict {
+		schema.AdditionalProperties = false
 	}
 
 	if len(required) > 0 {

@@ -124,13 +124,16 @@ func (p *Provider) GenerateStructured(ctx context.Context, prompt string, schema
 		return fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/v1beta/models/%s:generateContent?key=%s", p.baseURL, p.model, p.apiKey)
+	url := fmt.Sprintf("%s/v1beta/models/%s:generateContent", p.baseURL, p.model)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return fmt.Errorf("failed to create http request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	// Send the key via header instead of a URL query param to avoid leaking
+	// it into proxy / server access logs.
+	req.Header.Set("x-goog-api-key", p.apiKey)
 
 	resp, err := p.httpClient.Do(req)
 	if err != nil {

@@ -16,6 +16,7 @@ import (
 	"organizer/internal/model"
 	"organizer/internal/pipeline"
 	"organizer/internal/pipeline/stage2_enricher"
+	"organizer/internal/ptr"
 	"organizer/internal/service"
 )
 
@@ -145,6 +146,13 @@ func TestPlanHandler_UnknownCategoryEmptyPlan200(t *testing.T) {
 	if len(resp.Plan) != 0 {
 		t.Fatalf("unknown category must return an empty plan, got %+v", resp.Plan)
 	}
+
+	// Pin the wire contract: "plan" must serialize as [], not null.
+	var raw map[string]json.RawMessage
+	decodeBody(t, rec, &raw)
+	if planRaw, ok := raw["plan"]; !ok || strings.TrimSpace(string(planRaw)) != "[]" {
+		t.Fatalf("raw wire body must contain \"plan\": [], got %s", rec.Body.String())
+	}
 }
 
 func TestExecuteHandler_Success200AndArchive(t *testing.T) {
@@ -161,7 +169,7 @@ func TestExecuteHandler_Success200AndArchive(t *testing.T) {
 	rec := postJSON(t, e, "/v1/execute", model.APIExecuteRequest{
 		Dir: "d1",
 		Plan: []model.PlanAction{
-			{File: "movie.mkv", Action: "move", Target: strPtr("movie/Others/M (2000)/M (2000).mkv")},
+			{File: "movie.mkv", Action: "move", Target: ptr.Str("movie/Others/M (2000)/M (2000).mkv")},
 		},
 	})
 	if rec.Code != http.StatusOK {
@@ -194,8 +202,8 @@ func TestExecuteHandler_PartialFailure400(t *testing.T) {
 	rec := postJSON(t, e, "/v1/execute", model.APIExecuteRequest{
 		Dir: "d2",
 		Plan: []model.PlanAction{
-			{File: "missing.mkv", Action: "move", Target: strPtr("movie/Others/M (2000)/M (2000).mkv")},
-			{File: "good.mkv", Action: "move", Target: strPtr("movie/Others/M (2000)/M (2000) part.2.mkv")},
+			{File: "missing.mkv", Action: "move", Target: ptr.Str("movie/Others/M (2000)/M (2000).mkv")},
+			{File: "good.mkv", Action: "move", Target: ptr.Str("movie/Others/M (2000)/M (2000) part.2.mkv")},
 		},
 	})
 	if rec.Code != http.StatusBadRequest {
@@ -387,5 +395,3 @@ func TestReplanHandler_InvalidBody400(t *testing.T) {
 
 // Compile-time interface guards.
 var _ ai.Provider = (*mock.Provider)(nil)
-
-func strPtr(s string) *string { return &s }

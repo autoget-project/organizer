@@ -3,6 +3,7 @@ package ai_test
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"organizer/internal/ai"
 )
@@ -56,6 +57,24 @@ func TestGenerateStrictJSONSchema(t *testing.T) {
 	if len(expectedRequired) > 0 {
 		t.Errorf("missing required fields in strict schema: %v", expectedRequired)
 	}
+	// Surplus required entries (e.g. a json:"-" field leaking in) must also fail.
+	actualRequired := make(map[string]bool, len(schema.Required))
+	for _, req := range schema.Required {
+		if _, dup := actualRequired[req]; dup {
+			t.Errorf("duplicate required field in strict schema: %s", req)
+		}
+		actualRequired[req] = true
+	}
+	for _, req := range schema.Required {
+		switch req {
+		case "title", "season", "is_anim", "tags", "category", "nested", "nested_slice", "optional":
+		default:
+			t.Errorf("unexpected required field in strict schema: %s", req)
+		}
+	}
+	if _, exists := schema.Properties["ignored"]; exists {
+		t.Errorf("json:\"-\" field should not appear in properties")
+	}
 
 	// Verify properties
 	titleProp, ok := schema.Properties["title"]
@@ -97,8 +116,8 @@ func TestGenerateOpenAPISchema(t *testing.T) {
 		t.Errorf("expected schema.Type object, got %s", schema.Type)
 	}
 
-	if schema.AdditionalProperties != true {
-		t.Errorf("expected additionalProperties to be true in OpenAPI mode")
+	if schema.AdditionalProperties != nil {
+		t.Errorf("expected additionalProperties to be omitted in OpenAPI mode, got %v", schema.AdditionalProperties)
 	}
 
 	// Optional field has omitempty, so it should not be in required
@@ -113,5 +132,46 @@ func TestGenerateSchema_Nil(t *testing.T) {
 	_, err := ai.GenerateStrictJSONSchema(nil)
 	if err == nil {
 		t.Errorf("expected error for nil, got nil")
+	}
+}
+
+type MapTimeStruct struct {
+	Meta   map[string]string      `json:"meta"`
+	Any    map[string]interface{} `json:"any"`
+	When   time.Time              `json:"when"`
+	Points []map[string]int       `json:"points"`
+}
+
+func TestGenerateSchema_MapsAndTime(t *testing.T) {
+	schema, err := ai.GenerateStrictJSONSchema(MapTimeStruct{})
+	if err != nil {
+		t.Fatalf("GenerateStrictJSONSchema failed: %v", err)
+	}
+
+	metaProp, ok := schema.Properties["meta"]
+	if !ok || metaProp.Type != "object" {
+		t.Fatalf("invalid meta property: %+v", metaProp)
+	}
+	metaVal, ok := metaProp.AdditionalProperties.(ai.JSONSchema)
+	if !ok || metaVal.Type != "string" {
+		t.Errorf("expected meta additionalProperties {type:string}, got %v", metaProp.AdditionalProperties)
+	}
+
+	anyProp, ok := schema.Properties["any"]
+	if !ok || anyProp.AdditionalProperties != true {
+		t.Errorf("expected any additionalProperties true, got %v", anyProp.AdditionalProperties)
+	}
+
+	whenProp, ok := schema.Properties["when"]
+	if !ok || whenProp.Type != "string" {
+		t.Errorf("expected time.Time mapped to {type:string}, got %+v", whenProp)
+	}
+
+	pointsProp, ok := schema.Properties["points"]
+	if !ok || pointsProp.Type != "array" {
+		t.Fatalf("invalid points property: %+v", pointsProp)
+	}
+	if pointsProp.Items == nil || pointsProp.Items.AdditionalProperties == nil {
+		t.Errorf("expected points items to carry typed additionalProperties, got %+v", pointsProp.Items)
 	}
 }

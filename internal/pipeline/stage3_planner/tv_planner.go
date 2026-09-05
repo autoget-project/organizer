@@ -33,6 +33,11 @@ func NewTVPlanner(provider ai.Provider) *TVPlanner {
 // Plan generates the Jellyfin-compatible move plan for TV series videos.
 func (p *TVPlanner) Plan(ctx context.Context, pc *PlannerContext) ([]model.PlanAction, error) {
 	videos, _, others := partitionFiles(pc.Files)
+	if len(videos) == 0 {
+		// No videos: skip the wasted LLM call; garbage files stay skip actions
+		// and subtitles are handled by Stage 4.
+		return skipOthers(others), nil
+	}
 
 	root := tvTargetRoot(pc.Metadata.IsAnim)
 	lang := languageSegment(pc.Metadata)
@@ -60,7 +65,7 @@ func (p *TVPlanner) Plan(ctx context.Context, pc *PlannerContext) ([]model.PlanA
 		return nil, fmt.Errorf("tv planner llm generation failed: %w", err)
 	}
 
-	actions := llmItemsToActions(resp.Plan, videos)
+	actions := ItemsToActions(resp.Plan, videos)
 	for _, o := range others {
 		actions = append(actions, model.PlanAction{File: o, Action: "skip"})
 	}

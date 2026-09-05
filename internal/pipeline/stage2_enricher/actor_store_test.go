@@ -12,7 +12,7 @@ func TestActorStore_ReadWriteAndMerge(t *testing.T) {
 	tmpDir := t.TempDir()
 	actorFile := filepath.Join(tmpDir, "actor.json")
 
-	store := NewActorStore(actorFile, "", nil, nil)
+	store := NewActorStore(actorFile, "", nil)
 
 	// 1. Initially empty
 	_, found, err := store.FindDir([]string{"Yui Hatano"})
@@ -65,7 +65,7 @@ func TestActorStore_FlockConcurrency(t *testing.T) {
 	tmpDir := t.TempDir()
 	actorFile := filepath.Join(tmpDir, "actor.json")
 
-	store := NewActorStore(actorFile, "", nil, nil)
+	store := NewActorStore(actorFile, "", nil)
 
 	var wg sync.WaitGroup
 	workers := 10

@@ -209,12 +209,15 @@ func (e *Enricher) enrichBangoPorn(ctx context.Context, files []string, metadata
 			}
 		} else {
 			log.Printf("[M6 degrade] search_japanese_porn failed for (%s): %v", searchKey, err)
-			// Spec M6: fall back to the filename-derived canonical bango.
-			if fb := bangoFromFiles(files); fb != "" {
-				log.Printf("[M6 degrade] falling back to filename-derived bango (%s)", fb)
-				bangoCandidate = fb
-			}
 		}
+	}
+
+	// The canonical bango must always be the filename-derived hyphenated form
+	// when available (parity with bango_porn_mover.py), regardless of whether
+	// the MCP search used a dmm-derived key and succeeded; this keeps the final
+	// Bango (and the VR target dir derived from it) in canonical form.
+	if fb := bangoFromFiles(files); fb != "" {
+		bangoCandidate = fb
 	}
 	enriched.Bango = bangoCandidate
 
@@ -224,21 +227,21 @@ func (e *Enricher) enrichBangoPorn(ctx context.Context, files []string, metadata
 		enriched.Language = model.LanguageChinese
 	}
 
-	// If no actresses found, check entities or metadata
+	// If no actresses found, check entities or metadata.
+	// Tolerate []interface{} in case entities round-tripped through JSON.
 	if len(enriched.Actors) == 0 {
-		if actorArr, ok := entities["actors"].([]string); ok && len(actorArr) > 0 {
+		if actorArr := toStringSlice(entities["actors"]); len(actorArr) > 0 {
 			enriched.Actors = actorArr
 		}
 	}
 
-	// If VR not flagged, check filename / bango prefix
+	// If VR not flagged, check bango prefix / filename markers
 	if !enriched.IsVR {
-		upperBango := strings.ToUpper(bangoCandidate)
-		if strings.Contains(upperBango, "VR") {
+		if hasVRMarker(bangoCandidate) {
 			enriched.IsVR = true
 		}
 		for _, f := range files {
-			if strings.Contains(strings.ToUpper(f), "VR") {
+			if hasVRMarker(f) {
 				enriched.IsVR = true
 				break
 			}
@@ -267,7 +270,7 @@ func (e *Enricher) enrichPorn(ctx context.Context, files []string, metadata map[
 	enriched.Title = titleCandidate
 
 	for _, f := range files {
-		if strings.Contains(strings.ToUpper(f), "VR") {
+		if hasVRMarker(f) {
 			enriched.IsVR = true
 			break
 		}
@@ -275,16 +278,66 @@ func (e *Enricher) enrichPorn(ctx context.Context, files []string, metadata map[
 	return enriched, nil
 }
 
-func (e *Enricher) populateMovieFromMap(enriched *model.EnrichedMetadata, m map[string]interface{}) {
-	if title, ok := m["title"].(string); ok && title != "" {
-		enriched.Title = title
+// vrPrefixes mirrors the Python prefix list (archived bango mover).
+var vrPrefixes = []string{"IPVR", "DSVR", "HNVR", "JUVR", "MDVR", "SIVR"}
+
+// hasVRMarker reports whether s carries a VR indicator: an explicit VR series
+// prefix, or a bango whose label segment ends in VR.
+func hasVRMarker(s string) bool {
+	upper := strings.ToUpper(s)
+	for _, p := range vrPrefixes {
+		if strings.Contains(upper, p) {
+			return true
+		}
+	}
+	if m := bangoRegex.FindString(upper); m != "" {
+		label, _, _ := strings.Cut(m, "-")
+		if strings.HasSuffix(label, "VR") {
+			return true
+		}
+	}
+	return false
+}
+
+// toStringSlice normalizes a value that is either []string or a JSON-round-
+// tripped []interface{} of strings.
+func toStringSlice(v interface{}) []string {
+	switch arr := v.(type) {
+	case []string:
+		return arr
+	case []interface{}:
+		out := make([]string, 0, len(arr))
+		for _, item := range arr {
+			if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	}
+	return nil
+}
+
+// populateFromMediaMap fills EnrichedMetadata from a TMDB-style movie/TV map.
+// titleKeys/dateKeys carry the movie ("title"/"release_date") vs TV
+// ("name"/"first_air_date") key spellings.
+func (e *Enricher) populateFromMediaMap(enriched *model.EnrichedMetadata, m map[string]interface{}, titleKeys, dateKeys [2]string) {
+	for _, tk := range titleKeys {
+		if title, ok := m[tk].(string); ok && title != "" {
+			enriched.Title = title
+			break
+		}
 	}
 	if origTitle, ok := m["original_title"].(string); ok && origTitle != "" {
 		enriched.OriginalTitle = origTitle
+	} else if origName, ok := m["original_name"].(string); ok && origName != "" {
+		enriched.OriginalTitle = origName
 	}
-	if releaseDate, ok := m["release_date"].(string); ok && len(releaseDate) >= 4 {
-		if y, err := strconv.Atoi(releaseDate[:4]); err == nil {
-			enriched.Year = y
+	for _, dk := range dateKeys {
+		if date, ok := m[dk].(string); ok && len(date) >= 4 {
+			if y, err := strconv.Atoi(date[:4]); err == nil {
+				enriched.Year = y
+			}
+			break
 		}
 	}
 	if lang, ok := m["original_language"].(string); ok && lang != "" {
@@ -292,53 +345,26 @@ func (e *Enricher) populateMovieFromMap(enriched *model.EnrichedMetadata, m map[
 	}
 	if genres, ok := m["genres"].([]interface{}); ok {
 		for _, g := range genres {
-			if gMap, ok := g.(map[string]interface{}); ok {
-				if gName, ok := gMap["name"].(string); ok {
-					if strings.Contains(strings.ToLower(gName), "anim") {
-						enriched.IsAnim = true
-					}
-				}
-			} else if gStr, ok := g.(string); ok {
-				if strings.Contains(strings.ToLower(gStr), "anim") {
-					enriched.IsAnim = true
-				}
+			var gName string
+			switch gv := g.(type) {
+			case map[string]interface{}:
+				gName, _ = gv["name"].(string)
+			case string:
+				gName = gv
+			}
+			if strings.Contains(strings.ToLower(gName), "anim") {
+				enriched.IsAnim = true
 			}
 		}
 	}
 }
 
+func (e *Enricher) populateMovieFromMap(enriched *model.EnrichedMetadata, m map[string]interface{}) {
+	e.populateFromMediaMap(enriched, m, [2]string{"title", "name"}, [2]string{"release_date", "first_air_date"})
+}
+
 func (e *Enricher) populateTVFromMap(enriched *model.EnrichedMetadata, t map[string]interface{}) {
-	if name, ok := t["name"].(string); ok && name != "" {
-		enriched.Title = name
-	} else if title, ok := t["title"].(string); ok && title != "" {
-		enriched.Title = title
-	}
-	if origName, ok := t["original_name"].(string); ok && origName != "" {
-		enriched.OriginalTitle = origName
-	}
-	if airDate, ok := t["first_air_date"].(string); ok && len(airDate) >= 4 {
-		if y, err := strconv.Atoi(airDate[:4]); err == nil {
-			enriched.Year = y
-		}
-	}
-	if lang, ok := t["original_language"].(string); ok && lang != "" {
-		enriched.Language = model.ISO639ToLanguage(lang)
-	}
-	if genres, ok := t["genres"].([]interface{}); ok {
-		for _, g := range genres {
-			if gMap, ok := g.(map[string]interface{}); ok {
-				if gName, ok := gMap["name"].(string); ok {
-					if strings.Contains(strings.ToLower(gName), "anim") {
-						enriched.IsAnim = true
-					}
-				}
-			} else if gStr, ok := g.(string); ok {
-				if strings.Contains(strings.ToLower(gStr), "anim") {
-					enriched.IsAnim = true
-				}
-			}
-		}
-	}
+	e.populateFromMediaMap(enriched, t, [2]string{"name", "title"}, [2]string{"first_air_date", "release_date"})
 }
 
 func getIMDbID(metadata map[string]interface{}, entities map[string]interface{}) string {

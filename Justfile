@@ -17,8 +17,19 @@ fmt:
   @if [ -f go.mod ]; then go fmt ./...; else echo "go.mod not found, skipping fmt"; fi
 
 # Quality Gate: run static analysis and linting
+# Falls back to go vet when golangci-lint is not installed.
 lint:
-  @if [ -f go.mod ]; then golangci-lint run; else echo "go.mod not found, skipping lint"; fi
+	#!/usr/bin/env bash
+	if [ ! -f go.mod ]; then
+		echo "go.mod not found, skipping lint"
+		exit 0
+	fi
+	if command -v golangci-lint >/dev/null 2>&1; then
+		golangci-lint run
+	else
+		echo "golangci-lint not found, falling back to go vet"
+		go vet ./...
+	fi
 
 # Run tests for specific agent or pipeline component. Accepts both friendly
 # aliases and existing directory names / paths:

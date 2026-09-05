@@ -14,6 +14,10 @@ import (
 // DefaultTimeout is the default request timeout for MCP server calls.
 const DefaultTimeout = 30 * time.Second
 
+// maxResponseBytes bounds MCP response body reads (~10MiB) to protect against
+// a misbehaving server streaming unbounded data.
+const maxResponseBytes = 10 << 20
+
 // JSONRPCRequest represents a JSON-RPC 2.0 request payload.
 type JSONRPCRequest struct {
 	JSONRPC string      `json:"jsonrpc"`
@@ -60,6 +64,9 @@ type ToolContent struct {
 }
 
 // Client provides an interface to an MCP server via Streamable HTTP.
+// Limitation: no Streamable HTTP session handling (Mcp-Session-Id header /
+// initialize handshake); each tools/call is a stateless POST, which is
+// sufficient for the stateless metadata server used here.
 type Client interface {
 	CallTool(ctx context.Context, name string, arguments interface{}) (json.RawMessage, error)
 	SearchJapanesePorn(ctx context.Context, javID string) (map[string]interface{}, error)
@@ -118,24 +125,28 @@ func (c *HTTPClient) CallTool(ctx context.Context, name string, arguments interf
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 		return nil, fmt.Errorf("mcp server returned status %d: %s", resp.StatusCode, string(body))
 	}
 
-	respBytes, err := io.ReadAll(resp.Body)
+	respBytes, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read mcp response: %w", err)
 	}
 
-	return parseResponseBytes(respBytes)
+	// Detect SSE via the Content-Type header rather than sniffing the body,
+	// so a JSON text value containing a "data:" prefix cannot false-positive.
+	isSSE := strings.HasPrefix(strings.ToLower(strings.TrimSpace(
+		strings.SplitN(resp.Header.Get("Content-Type"), ";", 2)[0])), "text/event-stream")
+
+	return parseResponseBytes(respBytes, isSSE)
 }
 
-func parseResponseBytes(respBytes []byte) (json.RawMessage, error) {
-	// Check if this is an SSE / text/event-stream response
-	str := string(respBytes)
-	if strings.Contains(str, "data:") {
-		lines := strings.Split(str, "\n")
-		for _, line := range lines {
+func parseResponseBytes(respBytes []byte, isSSE bool) (json.RawMessage, error) {
+	// Parse SSE / text/event-stream response
+	if isSSE {
+		str := string(respBytes)
+		for _, line := range strings.Split(str, "\n") {
 			line = strings.TrimSpace(line)
 			if strings.HasPrefix(line, "data:") {
 				dataContent := strings.TrimSpace(strings.TrimPrefix(line, "data:"))

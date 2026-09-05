@@ -38,10 +38,10 @@ func partitionFiles(files []string) (videos, subtitles, others []string) {
 	return videos, subtitles, others
 }
 
-// llmItemsToActions converts LLM file mappings into PlanActions preserving the
+// ItemsToActions converts LLM file mappings into PlanActions preserving the
 // input order. Input files never mentioned by the LLM are explicitly marked
 // skip so every file is accounted for in the final plan.
-func llmItemsToActions(items []FilePlanItem, inputs []string) []model.PlanAction {
+func ItemsToActions(items []FilePlanItem, inputs []string) []model.PlanAction {
 	byFile := make(map[string]FilePlanItem, len(items))
 	for _, item := range items {
 		if item.File == "" {
@@ -67,9 +67,14 @@ func llmItemsToActions(items []FilePlanItem, inputs []string) []model.PlanAction
 	return actions
 }
 
-// strPtr returns a pointer to the given string (skip actions must serialize
-// with an explicit null target).
-func strPtr(s string) *string { return &s }
+// skipOthers builds explicit skip actions for non-media garbage files.
+func skipOthers(others []string) []model.PlanAction {
+	actions := make([]model.PlanAction, 0, len(others))
+	for _, o := range others {
+		actions = append(actions, model.PlanAction{File: o, Action: "skip"})
+	}
+	return actions
+}
 
 // languageSegment resolves the language path segment, defaulting to "Others".
 func languageSegment(meta model.EnrichedMetadata) string {

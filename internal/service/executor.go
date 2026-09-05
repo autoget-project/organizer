@@ -36,18 +36,39 @@ func NewExecutor(downloadDir, targetDir string) *Executor {
 // moves. Only when every move succeeds is the source directory archived into
 // {downloadDir}/archive/{dir}, guarded by a source-dir existence pre-check
 // (L15) that silently skips archiving when the directory is already gone.
+//
+// ctx is currently unused: os.Rename/os.Stat are not context-aware, but the
+// parameter is kept in the interface so future cancellable execution backends
+// stay source-compatible.
 func (e *Executor) ExecutePlan(ctx context.Context, dir string, plan []model.PlanAction) (model.ExecuteResponse, error) {
 	failedMove := make([]model.PlanFailed, 0)
+
+	// Defense-in-depth: never trust client dir/file/target beyond legacy
+	// byte-for-byte compatibility; escapes are recorded as failed moves.
+	baseDir, err := safeJoin(e.downloadDir, dir)
+	if err != nil {
+		return model.ExecuteResponse{FailedMove: failedMove}, fmt.Errorf("invalid request dir %q: %w", dir, err)
+	}
 
 	for _, action := range plan {
 		if action.Action != "move" {
 			continue
 		}
 
-		originalPath := filepath.Join(e.downloadDir, dir, action.File)
+		sourcePath, srcErr := safeJoin(baseDir, action.File)
 
 		// Source existence pre-check (compatible with both files and dirs).
-		if _, err := os.Stat(originalPath); err != nil {
+		if srcErr != nil {
+			failedMove = append(failedMove, model.PlanFailed{
+				File:   action.File,
+				Action: action.Action,
+				Target: action.Target,
+				Reason: "file not found",
+			})
+			// L11: keep executing subsequent legal moves instead of aborting.
+			continue
+		}
+		if _, err := os.Stat(sourcePath); err != nil {
 			failedMove = append(failedMove, model.PlanFailed{
 				File:   action.File,
 				Action: action.Action,
@@ -68,7 +89,17 @@ func (e *Executor) ExecutePlan(ctx context.Context, dir string, plan []model.Pla
 			continue
 		}
 
-		targetFile := filepath.Join(e.targetDir, *action.Target)
+		targetRel, tgtErr := safeJoinRel(*action.Target)
+		if tgtErr != nil {
+			failedMove = append(failedMove, model.PlanFailed{
+				File:   action.File,
+				Action: action.Action,
+				Target: action.Target,
+				Reason: fmt.Sprintf("invalid target: %v", tgtErr),
+			})
+			continue
+		}
+		targetFile := filepath.Join(e.targetDir, targetRel)
 		if err := os.MkdirAll(filepath.Dir(targetFile), 0755); err != nil {
 			failedMove = append(failedMove, model.PlanFailed{
 				File:   action.File,
@@ -79,7 +110,7 @@ func (e *Executor) ExecutePlan(ctx context.Context, dir string, plan []model.Pla
 			continue
 		}
 
-		if err := os.Rename(originalPath, targetFile); err != nil {
+		if err := os.Rename(sourcePath, targetFile); err != nil {
 			failedMove = append(failedMove, model.PlanFailed{
 				File:   action.File,
 				Action: action.Action,
@@ -110,7 +141,10 @@ func (e *Executor) archiveSourceDir(dir string) error {
 		return nil
 	}
 
-	sourceDir := filepath.Join(e.downloadDir, dir)
+	sourceDir, err := safeJoin(e.downloadDir, dir)
+	if err != nil {
+		return fmt.Errorf("invalid source dir %q: %w", dir, err)
+	}
 	if _, err := os.Stat(sourceDir); err != nil {
 		if os.IsNotExist(err) {
 			// L15: already cleaned externally -> skip archiving without error.
@@ -129,4 +163,31 @@ func (e *Executor) archiveSourceDir(dir string) error {
 		return fmt.Errorf("archive source dir %s failed: %w", sourceDir, err)
 	}
 	return nil
+}
+
+// safeJoinRel validates that rel is a safe relative path: not absolute and
+// free of any ".." traversal segments.
+func safeJoinRel(rel string) (string, error) {
+	if filepath.IsAbs(rel) {
+		return "", fmt.Errorf("absolute path %q is not allowed", rel)
+	}
+	cleaned := filepath.Clean(rel)
+	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path %q escapes the allowed directory", rel)
+	}
+	return cleaned, nil
+}
+
+// safeJoin joins base with the sanitized rel and verifies the cleaned result
+// still stays under base (defense-in-depth against traversal).
+func safeJoin(base, rel string) (string, error) {
+	cleaned, err := safeJoinRel(rel)
+	if err != nil {
+		return "", err
+	}
+	joined := filepath.Clean(filepath.Join(base, cleaned))
+	if baseCleaned := filepath.Clean(base); !strings.HasPrefix(joined, baseCleaned+string(filepath.Separator)) && joined != baseCleaned {
+		return "", fmt.Errorf("path %q escapes the allowed directory", rel)
+	}
+	return joined, nil
 }

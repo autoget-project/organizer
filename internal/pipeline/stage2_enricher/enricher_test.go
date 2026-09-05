@@ -104,7 +104,7 @@ func TestEnricher_DegradationProtection_M6(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	store := NewActorStore(filepath.Join(tmpDir, "actor.json"), "", nil, nil)
+	store := NewActorStore(filepath.Join(tmpDir, "actor.json"), "", nil)
 	enricher := NewEnricher(mcpMock, store, nil)
 	ctx := context.Background()
 

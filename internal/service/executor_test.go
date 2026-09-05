@@ -7,9 +7,8 @@ import (
 	"testing"
 
 	"organizer/internal/model"
+	"organizer/internal/ptr"
 )
-
-func strPtr(s string) *string { return &s }
 
 func mustWriteFile(t *testing.T, path, content string) {
 	t.Helper()
@@ -28,7 +27,7 @@ func TestExecutePlan_SingleFileMoveAndArchive(t *testing.T) {
 
 	exec := NewExecutor(downloadDir, targetDir)
 	resp, err := exec.ExecutePlan(context.Background(), "d1", []model.PlanAction{
-		{File: "movie.mkv", Action: "move", Target: strPtr("movie/Others/Movie (2000)/Movie (2000).mkv")},
+		{File: "movie.mkv", Action: "move", Target: ptr.Str("movie/Others/Movie (2000)/Movie (2000).mkv")},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -56,7 +55,7 @@ func TestExecutePlan_DirectoryAtomicMove(t *testing.T) {
 
 	exec := NewExecutor(downloadDir, targetDir)
 	resp, err := exec.ExecutePlan(context.Background(), "d2", []model.PlanAction{
-		{File: "season", Action: "move", Target: strPtr("tv_series/Others/Show (2020)/Season 01")},
+		{File: "season", Action: "move", Target: ptr.Str("tv_series/Others/Show (2020)/Season 01")},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -80,8 +79,8 @@ func TestExecutePlan_MixedFailureAggregationKeepsLegalMoves(t *testing.T) {
 
 	exec := NewExecutor(downloadDir, targetDir)
 	resp, err := exec.ExecutePlan(context.Background(), "d3", []model.PlanAction{
-		{File: "missing.mkv", Action: "move", Target: strPtr("movie/Others/M (2000)/M (2000).mkv")},
-		{File: "good.mkv", Action: "move", Target: strPtr("movie/Others/M (2000)/M (2000) part.2.mkv")},
+		{File: "missing.mkv", Action: "move", Target: ptr.Str("movie/Others/M (2000)/M (2000).mkv")},
+		{File: "good.mkv", Action: "move", Target: ptr.Str("movie/Others/M (2000)/M (2000) part.2.mkv")},
 	})
 	if err != nil {
 		t.Fatalf("aggregated failure must not surface as a fatal error: %v", err)
