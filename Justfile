@@ -44,7 +44,7 @@ test-agent name:
 
 # Run end-to-end (E2E) tests
 test-e2e:
-  @if [ -f go.mod ]; then go test -v ./test/e2e/...; else echo "go.mod not found, skipping test-e2e"; fi
+  @if [ -f go.mod ]; then go test -v ./tests/e2e/...; else echo "go.mod not found, skipping test-e2e"; fi
 
 # Run the HTTP service
 run:
