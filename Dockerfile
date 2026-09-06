@@ -7,8 +7,8 @@
 
 ARG GO_VERSION=1.27.1
 ARG ALPINE_VERSION=latest
-ARG UID=1000
-ARG GID=1000
+ARG UID=99 
+ARG GID=100
 
 # ---- Build stage -----------------------------------------------------------
 FROM golang:${GO_VERSION}-alpine AS builder
@@ -30,8 +30,9 @@ FROM alpine:${ALPINE_VERSION}
 ARG UID
 ARG GID
 
-# Non-root user for runtime safety; no home dir needed by the service.
-RUN addgroup -g ${GID} organizer \
+# Install ca-certificates for HTTPS/TLS requests and set up runtime user
+RUN apk add --no-cache ca-certificates \
+    && addgroup -g ${GID} organizer \
     && adduser -u ${UID} -G organizer -D -H -s /sbin/nologin organizer \
     && mkdir -p /mnt \
     && chown -R organizer:organizer /mnt
@@ -42,6 +43,6 @@ COPY --from=builder /out/organizer /usr/local/bin/organizer
 # expected to be provided via environment variables (docker run -e ...).
 USER organizer
 
-EXPOSE 8080
+EXPOSE 8000
 
 ENTRYPOINT ["organizer"]

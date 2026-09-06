@@ -25,7 +25,7 @@ import (
 	"github.com/autoget-project/organizer/internal/service"
 )
 
-const defaultPort = "8080"
+const defaultPort = "8000"
 
 func main() {
 	cfg := config.LoadConfig()
