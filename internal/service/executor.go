@@ -43,8 +43,8 @@ func NewExecutor(downloadDir, targetDir string) *Executor {
 func (e *Executor) ExecutePlan(ctx context.Context, dir string, plan []model.PlanAction) (model.ExecuteResponse, error) {
 	failedMove := make([]model.PlanFailed, 0)
 
-	// Defense-in-depth: never trust client dir/file/target beyond legacy
-	// byte-for-byte compatibility; escapes are recorded as failed moves.
+	// Defense-in-depth: never trust client dir/file/target; escapes are
+	// recorded as failed moves.
 	baseDir, err := safeJoin(e.downloadDir, dir)
 	if err != nil {
 		return model.ExecuteResponse{FailedMove: failedMove}, fmt.Errorf("invalid request dir %q: %w", dir, err)

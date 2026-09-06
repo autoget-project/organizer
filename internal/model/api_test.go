@@ -2,134 +2,87 @@ package model
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPlanActionJSON(t *testing.T) {
-	// Test move action with target
+	t.Parallel()
+
+	// Move action serializes its target.
 	targetPath := "movie/Chinese/Test (2024)/Test (2024).mkv"
-	actionMove := PlanAction{
-		File:   "test.mkv",
-		Action: "move",
-		Target: &targetPath,
-	}
+	dataMove, err := json.Marshal(PlanAction{File: "test.mkv", Action: "move", Target: &targetPath})
+	require.NoError(t, err)
+	assert.JSONEq(t,
+		`{"file":"test.mkv","action":"move","target":"movie/Chinese/Test (2024)/Test (2024).mkv"}`,
+		string(dataMove))
 
-	dataMove, err := json.Marshal(actionMove)
-	if err != nil {
-		t.Fatalf("failed to marshal move action: %v", err)
-	}
-	expectedMove := `{"file":"test.mkv","action":"move","target":"movie/Chinese/Test (2024)/Test (2024).mkv"}`
-	if string(dataMove) != expectedMove {
-		t.Errorf("got %s, want %s", string(dataMove), expectedMove)
-	}
+	// Skip action must explicitly serialize as "target": null.
+	dataSkip, err := json.Marshal(PlanAction{File: "sample.mkv", Action: "skip", Target: nil})
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"file":"sample.mkv","action":"skip","target":null}`, string(dataSkip))
 
-	// Test skip action with Target == nil, must explicitly serialize as "target":null (L12)
-	actionSkip := PlanAction{
-		File:   "sample.mkv",
-		Action: "skip",
-		Target: nil,
-	}
-
-	dataSkip, err := json.Marshal(actionSkip)
-	if err != nil {
-		t.Fatalf("failed to marshal skip action: %v", err)
-	}
-	expectedSkip := `{"file":"sample.mkv","action":"skip","target":null}`
-	if string(dataSkip) != expectedSkip {
-		t.Errorf("got %s, want %s", string(dataSkip), expectedSkip)
-	}
-
-	// Round-trip test
+	// Round trip.
 	var unmarshaledSkip PlanAction
-	if err := json.Unmarshal(dataSkip, &unmarshaledSkip); err != nil {
-		t.Fatalf("failed to unmarshal skip action: %v", err)
-	}
-	if unmarshaledSkip.Target != nil {
-		t.Errorf("expected unmarshaled Target to be nil, got %v", *unmarshaledSkip.Target)
-	}
-	if unmarshaledSkip.File != "sample.mkv" || unmarshaledSkip.Action != "skip" {
-		t.Errorf("unexpected unmarshaled fields: %+v", unmarshaledSkip)
-	}
+	require.NoError(t, json.Unmarshal(dataSkip, &unmarshaledSkip))
+	assert.Nil(t, unmarshaledSkip.Target)
+	assert.Equal(t, PlanAction{File: "sample.mkv", Action: "skip"}, unmarshaledSkip)
 }
 
 func TestPlanResponseJSON(t *testing.T) {
-	// When Error is nil, it should marshal as "error":null
-	resp := PlanResponse{
-		Plan:  []PlanAction{},
-		Error: nil,
-	}
-	data, err := json.Marshal(resp)
-	if err != nil {
-		t.Fatalf("failed to marshal PlanResponse: %v", err)
-	}
-	if !strings.Contains(string(data), `"error":null`) {
-		t.Errorf("expected PlanResponse to contain '\"error\":null', got %s", string(data))
-	}
+	t.Parallel()
 
-	// When Error has value
+	// A nil Error must marshal as "error": null.
+	data, err := json.Marshal(PlanResponse{Plan: []PlanAction{}, Error: nil})
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"error":null`)
+
+	// A set Error carries the message.
 	errMsg := "something failed"
-	respWithError := PlanResponse{
-		Plan:  []PlanAction{},
-		Error: &errMsg,
-	}
-	dataWithErr, err := json.Marshal(respWithError)
-	if err != nil {
-		t.Fatalf("failed to marshal PlanResponse with error: %v", err)
-	}
-	if !strings.Contains(string(dataWithErr), `"error":"something failed"`) {
-		t.Errorf("expected PlanResponse to contain error message, got %s", string(dataWithErr))
-	}
+	dataWithErr, err := json.Marshal(PlanResponse{Plan: []PlanAction{}, Error: &errMsg})
+	require.NoError(t, err)
+	assert.Contains(t, string(dataWithErr), `"error":"something failed"`)
 }
 
 func TestAPIRequestsAndResponses(t *testing.T) {
-	// APIPlanRequest round-trip
-	planReqJSON := `{"dir":"/incoming/movie","files":["a.mkv","b.nfo"],"metadata":{"dmm_id":"123"}}`
+	t.Parallel()
+
+	// APIPlanRequest round trip.
 	var planReq APIPlanRequest
-	if err := json.Unmarshal([]byte(planReqJSON), &planReq); err != nil {
-		t.Fatalf("unmarshal APIPlanRequest failed: %v", err)
-	}
-	if planReq.Dir != "/incoming/movie" || len(planReq.Files) != 2 || planReq.Metadata["dmm_id"] != "123" {
-		t.Errorf("unexpected APIPlanRequest: %+v", planReq)
-	}
+	require.NoError(t, json.Unmarshal(
+		[]byte(`{"dir":"/incoming/movie","files":["a.mkv","b.nfo"],"metadata":{"dmm_id":"123"}}`),
+		&planReq))
+	assert.Equal(t, "/incoming/movie", planReq.Dir)
+	assert.Equal(t, []string{"a.mkv", "b.nfo"}, planReq.Files)
+	assert.Equal(t, map[string]interface{}{"dmm_id": "123"}, planReq.Metadata)
 
-	// APIExecuteRequest & ExecuteResponse round-trip
-	execReqJSON := `{"dir":"/incoming/movie","plan":[{"file":"a.mkv","action":"move","target":"movie/a.mkv"}]}`
+	// APIExecuteRequest round trip.
 	var execReq APIExecuteRequest
-	if err := json.Unmarshal([]byte(execReqJSON), &execReq); err != nil {
-		t.Fatalf("unmarshal APIExecuteRequest failed: %v", err)
-	}
-	if len(execReq.Plan) != 1 || *execReq.Plan[0].Target != "movie/a.mkv" {
-		t.Errorf("unexpected APIExecuteRequest: %+v", execReq)
-	}
+	require.NoError(t, json.Unmarshal(
+		[]byte(`{"dir":"/incoming/movie","plan":[{"file":"a.mkv","action":"move","target":"movie/a.mkv"}]}`),
+		&execReq))
+	require.Len(t, execReq.Plan, 1)
+	require.NotNil(t, execReq.Plan[0].Target)
+	assert.Equal(t, "movie/a.mkv", *execReq.Plan[0].Target)
 
-	// ExecuteResponse with PlanFailed
+	// ExecuteResponse carries the failure reason.
 	target := "movie/b.mkv"
-	execResp := ExecuteResponse{
-		FailedMove: []PlanFailed{
-			{
-				File:   "b.mkv",
-				Action: "move",
-				Target: &target,
-				Reason: "file not found",
-			},
-		},
-	}
-	dataResp, err := json.Marshal(execResp)
-	if err != nil {
-		t.Fatalf("marshal ExecuteResponse failed: %v", err)
-	}
-	if !strings.Contains(string(dataResp), `"reason":"file not found"`) {
-		t.Errorf("ExecuteResponse missing reason: %s", string(dataResp))
-	}
+	dataResp, err := json.Marshal(ExecuteResponse{FailedMove: []PlanFailed{{
+		File:   "b.mkv",
+		Action: "move",
+		Target: &target,
+		Reason: "file not found",
+	}}})
+	require.NoError(t, err)
+	assert.Contains(t, string(dataResp), `"reason":"file not found"`)
 
-	// APIReplanRequest round-trip
-	replanReqJSON := `{"files":["a.mkv"],"metadata":null,"previous_response":{"plan":[],"error":null},"user_hint":"this is tv"}`
+	// APIReplanRequest round trip.
 	var replanReq APIReplanRequest
-	if err := json.Unmarshal([]byte(replanReqJSON), &replanReq); err != nil {
-		t.Fatalf("unmarshal APIReplanRequest failed: %v", err)
-	}
-	if replanReq.UserHint != "this is tv" || len(replanReq.Files) != 1 {
-		t.Errorf("unexpected APIReplanRequest: %+v", replanReq)
-	}
+	require.NoError(t, json.Unmarshal(
+		[]byte(`{"files":["a.mkv"],"metadata":null,"previous_response":{"plan":[],"error":null},"user_hint":"this is tv"}`),
+		&replanReq))
+	assert.Equal(t, []string{"a.mkv"}, replanReq.Files)
+	assert.Equal(t, "this is tv", replanReq.UserHint)
 }

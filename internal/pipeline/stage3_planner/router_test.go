@@ -2,51 +2,58 @@ package stage3planner
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"organizer/internal/ai/mock"
 	"organizer/internal/model"
 )
 
 func TestRouter_UnknownCategoryReturnsEmptyPlan(t *testing.T) {
+	t.Parallel()
+
 	// No rules and no default response: any LLM call would fail loudly.
 	router := NewRouter(mock.NewProvider())
 
 	actions, err := router.Plan(context.Background(), model.CategoryUnknown, &PlannerContext{
 		Files: []string{"hash/junk.bin"},
 	})
-	if err != nil {
-		t.Fatalf("unknown category must not produce an error, got %v", err)
-	}
-	if len(actions) != 0 {
-		t.Fatalf("unknown category must return an empty plan, got %+v", actions)
-	}
+	require.NoError(t, err, "unknown category must not produce an error")
+	assert.Empty(t, actions, "unknown category must return an empty plan")
 }
 
 func TestRouter_SimpleCategoriesRouteToLocalPlanner(t *testing.T) {
+	t.Parallel()
+
 	// No rules: if the router wrongly delegated to an LLM planner it would error.
 	router := NewRouter(mock.NewProvider())
 
 	for _, cat := range model.SimpleMoveCategories {
-		actions, err := router.Plan(context.Background(), cat, &PlannerContext{
-			Files: []string{"hash/" + string(cat) + ".dat"},
+		t.Run(string(cat), func(t *testing.T) {
+			t.Parallel()
+
+			actions, err := router.Plan(context.Background(), cat, &PlannerContext{
+				Files: []string{"hash/" + string(cat) + ".dat"},
+			})
+			require.NoError(t, err)
+			require.Len(t, actions, 1)
+			assert.Equal(t, "move", actions[0].Action)
+
+			wantPrefix := string(cat) + "/"
+			require.NotNil(t, actions[0].Target)
+			assert.True(t, strings.HasPrefix(*actions[0].Target, wantPrefix),
+				"expected target prefix %s, got %s", wantPrefix, *actions[0].Target)
 		})
-		if err != nil {
-			t.Fatalf("category %s: unexpected error %v", cat, err)
-		}
-		if len(actions) != 1 || actions[0].Action != "move" {
-			t.Fatalf("category %s: unexpected plan %+v", cat, actions)
-		}
-		wantPrefix := string(cat) + "/"
-		if actions[0].Target == nil || !strings.HasPrefix(*actions[0].Target, wantPrefix) {
-			t.Fatalf("category %s: expected target prefix %s, got %v", cat, wantPrefix, actions[0].Target)
-		}
 	}
 }
 
 func TestRouter_PornRoutesToLocalPlanner(t *testing.T) {
+	t.Parallel()
+
 	router := NewRouter(mock.NewProvider())
 
 	actions, err := router.Plan(context.Background(), model.CategoryPorn, &PlannerContext{
@@ -55,19 +62,19 @@ func TestRouter_PornRoutesToLocalPlanner(t *testing.T) {
 			"id": "vixen-long-con-part-1",
 		},
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
+
 	action := findAction(t, actions, "Long-Con-1.mp4")
-	if action.Target == nil || *action.Target != "porn/vixen-long-con-part-1/vixen-long-con-part-1.mp4" {
-		t.Fatalf("unexpected porn plan: %+v", action)
-	}
+	require.NotNil(t, action.Target)
+	assert.Equal(t, "porn/vixen-long-con-part-1/vixen-long-con-part-1.mp4", *action.Target)
 }
 
 func TestRouter_LLMPlannersRouteToProvider(t *testing.T) {
+	t.Parallel()
+
 	// A failing default response proves which planner each category reaches.
 	prov := mock.NewProvider()
-	prov.SetDefaultResponse(nil, fmt.Errorf("no rule"))
+	prov.SetDefaultResponse(nil, errors.New("no rule"))
 	router := NewRouter(prov)
 
 	tests := []struct {
@@ -80,15 +87,15 @@ func TestRouter_LLMPlannersRouteToProvider(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		_, err := router.Plan(context.Background(), tt.cat, &PlannerContext{
-			Files:    []string{"X/E01.mkv"},
-			Metadata: model.EnrichedMetadata{Title: "X"},
+		t.Run(string(tt.cat), func(t *testing.T) {
+			t.Parallel()
+
+			_, err := router.Plan(context.Background(), tt.cat, &PlannerContext{
+				Files:    []string{"X/E01.mkv"},
+				Metadata: model.EnrichedMetadata{Title: "X"},
+			})
+			require.Error(t, err, "provider error must propagate")
+			assert.Contains(t, err.Error(), tt.errSubstr)
 		})
-		if err == nil {
-			t.Fatalf("category %s: expected provider error propagation", tt.cat)
-		}
-		if !strings.Contains(err.Error(), tt.errSubstr) {
-			t.Fatalf("category %s: error %q does not mention %q", tt.cat, err.Error(), tt.errSubstr)
-		}
 	}
 }

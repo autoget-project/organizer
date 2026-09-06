@@ -10,7 +10,7 @@ import (
 )
 
 // SimplePlan archives the 5 simple categories (photobook, audio_book, book,
-// music, music_video) with the legacy three-branch local strategy (M7):
+// music, music_video) with the local three-branch strategy (M7):
 //  1. single file: target = {category}/{filename};
 //  2. many files directly under the hash dir: the whole hash dir is moved,
 //     target = {category}/{hash_dir};
@@ -19,7 +19,7 @@ import (
 //
 // Assumption: inputs follow the real torrent layout "{hash}/..." (every file
 // path contains at least one "/"). Multiple top-level flat files (no "/")
-// yield an empty plan instead of the legacy Python IndexError.
+// yield an empty plan instead of an error.
 func SimplePlan(cat model.Category, files []string) []model.PlanAction {
 	categoryDir := string(cat)
 

@@ -3,92 +3,102 @@ package stage1classifier
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"organizer/internal/model"
 )
 
 func TestMatchByRules_OrganizerCategory(t *testing.T) {
-	// M8a: organizer_category = ["audio_book"] with pure mp3 files -> audio_book (NOT music)
-	reqFiles := []string{"chapter01.mp3", "chapter02.mp3"}
-	meta := map[string]interface{}{
-		"organizer_category": []string{"audio_book"},
-	}
-	res, matched := MatchByRules(reqFiles, meta)
-	if !matched {
-		t.Fatalf("expected matched to be true")
-	}
-	if res.Category != model.CategoryAudioBook {
-		t.Fatalf("expected CategoryAudioBook, got %s", res.Category)
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		files        []string
+		organizerCat interface{}
+		wantCategory model.Category
+		wantMatched  bool
+	}{
+		{
+			// M8a: organizer_category = ["audio_book"] with pure mp3 files
+			// must resolve to audio_book, not music.
+			name:         "audio_book_list",
+			files:        []string{"chapter01.mp3", "chapter02.mp3"},
+			organizerCat: []string{"audio_book"},
+			wantCategory: model.CategoryAudioBook,
+			wantMatched:  true,
+		},
+		{
+			name:         "single_string",
+			files:        []string{"anything.mp4"},
+			organizerCat: "book",
+			wantCategory: model.CategoryBook,
+			wantMatched:  true,
+		},
+		{
+			name:         "invalid_item_before_valid",
+			files:        []string{"video.mp4"},
+			organizerCat: []string{"invalid_category_xyz", "bango_porn"},
+			wantCategory: model.CategoryBangoPorn,
+			wantMatched:  true,
+		},
+		{
+			// All invalid items keep evaluating: the pure book check wins.
+			name:         "all_invalid_items",
+			files:        []string{"ebook.epub"},
+			organizerCat: []string{"invalid_item_1", "invalid_item_2"},
+			wantCategory: model.CategoryBook,
+			wantMatched:  true,
+		},
 	}
 
-	// Single string organizer_category
-	metaStr := map[string]interface{}{
-		"organizer_category": "book",
-	}
-	resStr, matchedStr := MatchByRules([]string{"anything.mp4"}, metaStr)
-	if !matchedStr || resStr.Category != model.CategoryBook {
-		t.Fatalf("expected CategoryBook, got %v (%t)", resStr.Category, matchedStr)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	// Array with invalid item first, then valid bango_porn
-	metaInvalidFirst := map[string]interface{}{
-		"organizer_category": []string{"invalid_category_xyz", "bango_porn"},
-	}
-	resInv, matchedInv := MatchByRules([]string{"video.mp4"}, metaInvalidFirst)
-	if !matchedInv || resInv.Category != model.CategoryBangoPorn {
-		t.Fatalf("expected CategoryBangoPorn, got %v (%t)", resInv.Category, matchedInv)
-	}
-
-	// All invalid items: should not panic/crash, continues evaluation
-	metaAllInvalid := map[string]interface{}{
-		"organizer_category": []string{"invalid_item_1", "invalid_item_2"},
-	}
-	resAllInv, matchedAllInv := MatchByRules([]string{"ebook.epub"}, metaAllInvalid)
-	// Falls through to pure book check -> book
-	if !matchedAllInv || resAllInv.Category != model.CategoryBook {
-		t.Fatalf("expected CategoryBook after all invalid organizer_category, got %v (%t)", resAllInv.Category, matchedAllInv)
+			res, matched := MatchByRules(tt.files, map[string]interface{}{
+				"organizer_category": tt.organizerCat,
+			})
+			require.Equal(t, tt.wantMatched, matched)
+			assert.Equal(t, tt.wantCategory, res.Category)
+		})
 	}
 }
 
 func TestMatchByRules_DmmID(t *testing.T) {
-	meta := map[string]interface{}{
+	t.Parallel()
+
+	res, matched := MatchByRules([]string{"random_name.mp4"}, map[string]interface{}{
 		"dmm_id": "ssis00123",
-	}
-	res, matched := MatchByRules([]string{"random_name.mp4"}, meta)
-	if !matched {
-		t.Fatalf("expected dmm_id to match")
-	}
-	if res.Category != model.CategoryBangoPorn {
-		t.Fatalf("expected CategoryBangoPorn, got %s", res.Category)
-	}
-	if res.Entities["dmm_id"] != "ssis00123" {
-		t.Fatalf("expected dmm_id in entities")
-	}
+	})
+	require.True(t, matched, "dmm_id must match")
+	assert.Equal(t, model.CategoryBangoPorn, res.Category)
+	assert.Equal(t, "ssis00123", res.Entities["dmm_id"])
 }
 
 func TestMatchByRules_PureBook(t *testing.T) {
-	files := []string{"book1.epub", "folder/book2.pdf", "text.txt"}
-	res, matched := MatchByRules(files, nil)
-	if !matched {
-		t.Fatalf("expected matched book")
-	}
-	if res.Category != model.CategoryBook {
-		t.Fatalf("expected CategoryBook, got %s", res.Category)
-	}
+	t.Parallel()
+
+	res, matched := MatchByRules([]string{"book1.epub", "folder/book2.pdf", "text.txt"}, nil)
+	require.True(t, matched, "pure book extensions must match")
+	assert.Equal(t, model.CategoryBook, res.Category)
 }
 
 func TestMatchByRules_PureAudioDegradation(t *testing.T) {
-	// M8b: Pure audio files without metadata should NOT blindly match music, should return false for LLM disambiguation
-	files := []string{"track01.mp3", "track02.flac", "audio.m4a"}
-	_, matched := MatchByRules(files, nil)
-	if matched {
-		t.Fatalf("expected matched to be false for pure audio without hints (must degrade to LLM)")
-	}
+	t.Parallel()
+
+	// M8b: pure audio files without metadata must NOT blindly match music;
+	// they degrade to the LLM for disambiguation.
+	_, matched := MatchByRules([]string{"track01.mp3", "track02.flac", "audio.m4a"}, nil)
+	assert.False(t, matched)
 }
 
 func TestMatchByRules_StandardBangoRegex(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
-		filename string
-		expected string
+		filename  string
+		wantBango string
 	}{
 		{"SSIS-001.mp4", "SSIS-001"},
 		{"abp-123.mkv", "ABP-123"},
@@ -98,28 +108,25 @@ func TestMatchByRules_StandardBangoRegex(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.filename, func(t *testing.T) {
+			t.Parallel()
+
 			res, matched := MatchByRules([]string{tt.filename}, nil)
-			if !matched {
-				t.Fatalf("expected bango match for %s", tt.filename)
-			}
-			if res.Category != model.CategoryBangoPorn {
-				t.Fatalf("expected CategoryBangoPorn, got %s", res.Category)
-			}
-			if res.Entities["bango"] != tt.expected {
-				t.Fatalf("expected bango %s, got %v", tt.expected, res.Entities["bango"])
-			}
+			require.True(t, matched, "expected bango match for %s", tt.filename)
+			assert.Equal(t, model.CategoryBangoPorn, res.Category)
+			assert.Equal(t, tt.wantBango, res.Entities["bango"])
 		})
 	}
 }
 
 func TestMatchByRules_ComplexNoiseFallthrough(t *testing.T) {
-	// Release group noise or multiple video files without bango pattern should fall through to false
+	t.Parallel()
+
+	// Release group noise or multiple video files without a bango pattern
+	// must fall through to the LLM.
 	files := []string{
 		"[HDSky] The.Matrix.1999.1080p.BluRay.x264.mkv",
 		"sample.mkv",
 	}
 	_, matched := MatchByRules(files, nil)
-	if matched {
-		t.Fatalf("expected false for complex noisy movie files")
-	}
+	assert.False(t, matched)
 }

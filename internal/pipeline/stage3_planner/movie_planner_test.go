@@ -5,11 +5,16 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"organizer/internal/ai/mock"
 	"organizer/internal/model"
 )
 
 func TestMoviePlanner_AnimRouting_H4(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		isAnim        bool
@@ -32,6 +37,8 @@ func TestMoviePlanner_AnimRouting_H4(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			prov := mock.NewProvider()
 			prov.AddRule(mock.Rule{
 				PromptPattern: "organizes movie downloads",
@@ -51,30 +58,24 @@ func TestMoviePlanner_AnimRouting_H4(t *testing.T) {
 			}
 
 			actions, err := planner.Plan(context.Background(), pc)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
+			require.NoError(t, err)
 
 			calls := prov.Calls()
-			if len(calls) != 1 {
-				t.Fatalf("expected 1 provider call, got %d", len(calls))
-			}
-			if !strings.Contains(calls[0].Prompt, tt.wantPromptTip) {
-				t.Fatalf("prompt root_path mismatch: want tip %q in prompt", tt.wantPromptTip)
-			}
+			require.Len(t, calls, 1)
+			assert.Contains(t, calls[0].Prompt, tt.wantPromptTip, "prompt root_path mismatch")
 
 			action := findAction(t, actions, "Movie/Movie.2001.mkv")
-			if action.Action != "move" {
-				t.Fatalf("expected move action, got %s", action.Action)
-			}
-			if action.Target == nil || !strings.HasPrefix(*action.Target, tt.wantTargetTip) {
-				t.Fatalf("expected target starting with %s, got %v", tt.wantTargetTip, action.Target)
-			}
+			assert.Equal(t, "move", action.Action)
+			require.NotNil(t, action.Target)
+			assert.True(t, strings.HasPrefix(*action.Target, tt.wantTargetTip),
+				"expected target starting with %s, got %s", tt.wantTargetTip, *action.Target)
 		})
 	}
 }
 
 func TestMoviePlanner_SampleAndTrailerFiltering(t *testing.T) {
+	t.Parallel()
+
 	prov := mock.NewProvider()
 	prov.AddRule(mock.Rule{
 		PromptPattern: "organizes movie downloads",
@@ -101,23 +102,17 @@ func TestMoviePlanner_SampleAndTrailerFiltering(t *testing.T) {
 	}
 
 	actions, err := planner.Plan(context.Background(), pc)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if len(actions) != len(pc.Files) {
-		t.Fatalf("expected %d actions, got %d", len(pc.Files), len(actions))
-	}
+	require.NoError(t, err)
+	require.Len(t, actions, len(pc.Files))
 
 	main := findAction(t, actions, "Movie/The.Matrix.1999.mkv")
-	if main.Action != "move" || main.Target == nil || *main.Target != "movie/English/黑客帝国 (1999)/黑客帝国 (1999).mkv" {
-		t.Fatalf("unexpected main feature action: %s %v", main.Action, main.Target)
-	}
+	require.Equal(t, "move", main.Action)
+	require.NotNil(t, main.Target)
+	assert.Equal(t, "movie/English/黑客帝国 (1999)/黑客帝国 (1999).mkv", *main.Target)
 
 	for _, file := range []string{"Movie/sample.mkv", "Movie/trailer.mkv", "Movie/cover.nfo"} {
 		action := findAction(t, actions, file)
-		if action.Action != "skip" || action.Target != nil {
-			t.Fatalf("file %s: want skip with null target, got %s %v", file, action.Action, action.Target)
-		}
+		assert.Equal(t, "skip", action.Action, "file %s", file)
+		assert.Nil(t, action.Target, "file %s", file)
 	}
 }

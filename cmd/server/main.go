@@ -1,7 +1,7 @@
 // Command server is the AutoGet Organizer REST service entry point: it runs
 // startup checks, resolves the AI provider from the MODEL env, wires the
-// pipeline / executor / handlers and serves the legacy-compatible routes with
-// graceful shutdown.
+// pipeline / executor / handlers and serves the REST routes with graceful
+// shutdown.
 package main
 
 import (

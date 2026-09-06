@@ -4,10 +4,15 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"organizer/internal/model"
 )
 
 func TestPornPlanner_NamingFallbackChain_L9(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		pc   *PlannerContext
@@ -55,20 +60,23 @@ func TestPornPlanner_NamingFallbackChain_L9(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			planner := NewPornPlanner()
 			actions, err := planner.Plan(context.Background(), tt.pc)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
+			require.NoError(t, err)
+
 			action := findAction(t, actions, tt.pc.Files[0])
-			if action.Action != "move" || action.Target == nil || *action.Target != tt.want {
-				t.Fatalf("want move to %s, got %s %v", tt.want, action.Action, action.Target)
-			}
+			require.Equal(t, "move", action.Action)
+			require.NotNil(t, action.Target)
+			assert.Equal(t, tt.want, *action.Target)
 		})
 	}
 }
 
 func TestPornPlanner_VRRootAndCompanionFiles(t *testing.T) {
+	t.Parallel()
+
 	planner := NewPornPlanner()
 	pc := &PlannerContext{
 		Files: []string{
@@ -81,27 +89,22 @@ func TestPornPlanner_VRRootAndCompanionFiles(t *testing.T) {
 	}
 
 	actions, err := planner.Plan(context.Background(), pc)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	move := findAction(t, actions, "VR Video.mp4")
-	if move.Action != "move" || move.Target == nil || *move.Target != "porn_vr/VR Video/VR Video.mp4" {
-		t.Fatalf("unexpected VR action: %+v", move)
-	}
+	require.Equal(t, "move", move.Action)
+	require.NotNil(t, move.Target)
+	assert.Equal(t, "porn_vr/VR Video/VR Video.mp4", *move.Target)
 
-	// Subtitle files stay unplanned (Stage 4 pairs them semantically).
+	// Subtitle files stay unplanned: Stage 4 pairs them semantically.
 	for _, a := range actions {
-		if a.File == "VR Video.srt" {
-			t.Fatalf("subtitle must be left to stage 4, got action %+v", a)
-		}
+		assert.NotEqual(t, "VR Video.srt", a.File, "subtitle must be left to stage 4")
 	}
 
 	// Non-media files are skipped.
 	for _, file := range []string{"cover.jpg", "meta.nfo"} {
 		action := findAction(t, actions, file)
-		if action.Action != "skip" || action.Target != nil {
-			t.Fatalf("file %s: want skip, got %+v", file, action)
-		}
+		assert.Equal(t, "skip", action.Action, "file %s", file)
+		assert.Nil(t, action.Target, "file %s", file)
 	}
 }

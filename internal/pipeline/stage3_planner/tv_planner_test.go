@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"organizer/internal/ai/mock"
 	"organizer/internal/model"
 )
@@ -23,6 +26,8 @@ func findAction(t *testing.T, actions []model.PlanAction, file string) model.Pla
 }
 
 func TestTVPlanner_AnimRouting_H4(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		isAnim        bool
@@ -45,6 +50,8 @@ func TestTVPlanner_AnimRouting_H4(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			prov := mock.NewProvider()
 			prov.AddRule(mock.Rule{
 				PromptPattern: "organizes TV series downloads",
@@ -64,31 +71,25 @@ func TestTVPlanner_AnimRouting_H4(t *testing.T) {
 			}
 
 			actions, err := planner.Plan(context.Background(), pc)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
+			require.NoError(t, err)
 
 			// The planner must inject the H4 root into the LLM prompt.
 			calls := prov.Calls()
-			if len(calls) != 1 {
-				t.Fatalf("expected 1 provider call, got %d", len(calls))
-			}
-			if !strings.Contains(calls[0].Prompt, tt.wantPromptTip) {
-				t.Fatalf("prompt root_path mismatch: want tip %q in prompt", tt.wantPromptTip)
-			}
+			require.Len(t, calls, 1)
+			assert.Contains(t, calls[0].Prompt, tt.wantPromptTip, "prompt root_path mismatch")
 
 			action := findAction(t, actions, "Show/Show S01E01.mkv")
-			if action.Action != "move" {
-				t.Fatalf("expected move action, got %s", action.Action)
-			}
-			if action.Target == nil || !strings.HasPrefix(*action.Target, tt.wantTargetTip) {
-				t.Fatalf("expected target starting with %s, got %v", tt.wantTargetTip, action.Target)
-			}
+			assert.Equal(t, "move", action.Action)
+			require.NotNil(t, action.Target)
+			assert.True(t, strings.HasPrefix(*action.Target, tt.wantTargetTip),
+				"expected target starting with %s, got %s", tt.wantTargetTip, *action.Target)
 		})
 	}
 }
 
 func TestTVPlanner_MessyEpisodeMapping(t *testing.T) {
+	t.Parallel()
+
 	prov := mock.NewProvider()
 	prov.AddRule(mock.Rule{
 		PromptPattern: "organizes TV series downloads",
@@ -119,14 +120,10 @@ func TestTVPlanner_MessyEpisodeMapping(t *testing.T) {
 	}
 
 	actions, err := planner.Plan(context.Background(), pc)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Every input file must be accounted for exactly once.
-	if len(actions) != len(pc.Files) {
-		t.Fatalf("expected %d actions, got %d", len(pc.Files), len(actions))
-	}
+	require.Len(t, actions, len(pc.Files))
 
 	wantTargets := map[string]string{
 		"Show/第03话.mkv":          "tv_series/Chinese/X (2020)/Season 01/X (2020) S01E03.mkv",
@@ -138,21 +135,22 @@ func TestTVPlanner_MessyEpisodeMapping(t *testing.T) {
 	}
 	for file, want := range wantTargets {
 		action := findAction(t, actions, file)
-		if action.Action != "move" || action.Target == nil || *action.Target != want {
-			t.Fatalf("file %s: want move to %s, got %s %v", file, want, action.Action, action.Target)
-		}
+		require.Equal(t, "move", action.Action, "file %s", file)
+		require.NotNil(t, action.Target, "file %s", file)
+		assert.Equal(t, want, *action.Target, "file %s", file)
 	}
 
 	// Sample skipped by the LLM, non-media skipped locally.
 	for _, file := range []string{"Show/sample.mkv", "Show/cover.jpg"} {
 		action := findAction(t, actions, file)
-		if action.Action != "skip" || action.Target != nil {
-			t.Fatalf("file %s: want skip with null target, got %s %v", file, action.Action, action.Target)
-		}
+		assert.Equal(t, "skip", action.Action, "file %s", file)
+		assert.Nil(t, action.Target, "file %s", file)
 	}
 }
 
 func TestTVPlanner_UncoveredVideoMarkedSkip(t *testing.T) {
+	t.Parallel()
+
 	prov := mock.NewProvider()
 	prov.AddRule(mock.Rule{
 		PromptPattern: "organizes TV series downloads",
@@ -166,17 +164,15 @@ func TestTVPlanner_UncoveredVideoMarkedSkip(t *testing.T) {
 	}
 
 	actions, err := planner.Plan(context.Background(), pc)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	action := findAction(t, actions, "Show/E02.mkv")
-	if action.Action != "skip" {
-		t.Fatalf("expected uncovered video to be skipped, got %s", action.Action)
-	}
+	assert.Equal(t, "skip", action.Action, "uncovered video must be skipped")
 }
 
 func TestTVPlanner_LLMErrorPropagates(t *testing.T) {
+	t.Parallel()
+
 	prov := mock.NewProvider()
 	prov.AddRule(mock.Rule{
 		PromptPattern: "organizes TV series downloads",
@@ -188,7 +184,6 @@ func TestTVPlanner_LLMErrorPropagates(t *testing.T) {
 		Files:    []string{"Show/E01.mkv"},
 		Metadata: model.EnrichedMetadata{Title: "X"},
 	})
-	if err == nil {
-		t.Fatalf("expected LLM failure to propagate as fatal error")
-	}
+	require.Error(t, err, "LLM failure must propagate as a fatal error")
+	assert.ErrorContains(t, err, "provider outage")
 }

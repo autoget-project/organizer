@@ -48,7 +48,7 @@ func NewRouter(provider ai.Provider) *Router {
 //   - tv_series / movie / bango_porn -> dedicated LLM planners;
 //   - porn -> local Porn Planner (naming fallback chain);
 //   - simple categories -> local Simple Planner three-branch strategy;
-//   - unknown -> empty plan with nil error (legacy contract alignment).
+//   - unknown -> empty plan with nil error.
 func (r *Router) Plan(ctx context.Context, cat model.Category, pc *PlannerContext) ([]model.PlanAction, error) {
 	if pc == nil {
 		return nil, fmt.Errorf("planner context is nil")
@@ -67,7 +67,7 @@ func (r *Router) Plan(ctx context.Context, cat model.Category, pc *PlannerContex
 		if IsSimpleMoveCategory(cat) {
 			return SimplePlan(cat, pc.Files), nil
 		}
-		// unknown: empty plan and nil error, exactly like the legacy system.
+		// unknown: empty plan and nil error (normal planning outcome).
 		return nil, nil
 	}
 }

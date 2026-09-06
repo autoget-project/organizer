@@ -6,9 +6,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClient_StreamableHTTP_CallTool(t *testing.T) {
+	t.Parallel()
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req JSONRPCRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -22,6 +27,7 @@ func TestClient_StreamableHTTP_CallTool(t *testing.T) {
 
 		switch toolParams.Name {
 		case "find_by_imdb_id":
+			// Standard JSON-RPC response.
 			toolRes := ToolCallResult{
 				Content: []ToolContent{
 					{
@@ -31,16 +37,11 @@ func TestClient_StreamableHTTP_CallTool(t *testing.T) {
 				},
 			}
 			resBytes, _ := json.Marshal(toolRes)
-			resp := JSONRPCResponse{
-				JSONRPC: "2.0",
-				ID:      req.ID,
-				Result:  resBytes,
-			}
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(JSONRPCResponse{JSONRPC: "2.0", ID: req.ID, Result: resBytes})
 
 		case "search_japanese_porn":
-			// Test SSE / streaming format
+			// SSE / streaming response format.
 			w.Header().Set("Content-Type", "text/event-stream")
 			toolRes := ToolCallResult{
 				Content: []ToolContent{
@@ -51,39 +52,25 @@ func TestClient_StreamableHTTP_CallTool(t *testing.T) {
 				},
 			}
 			resBytes, _ := json.Marshal(toolRes)
-			resp := JSONRPCResponse{
-				JSONRPC: "2.0",
-				ID:      req.ID,
-				Result:  resBytes,
-			}
-			data, _ := json.Marshal(resp)
+			data, _ := json.Marshal(JSONRPCResponse{JSONRPC: "2.0", ID: req.ID, Result: resBytes})
 			_, _ = w.Write([]byte("event: message\ndata: " + string(data) + "\n\n"))
 
 		default:
 			http.Error(w, "unknown tool", http.StatusNotFound)
 		}
 	}))
-	defer ts.Close()
+	t.Cleanup(ts.Close)
 
 	client := NewClient(ts.URL)
 	ctx := context.Background()
 
-	// 1. Standard JSON-RPC call
 	imdbRes, err := client.FindByIMDbID(ctx, "tt1375666")
-	if err != nil {
-		t.Fatalf("FindByIMDbID failed: %v", err)
-	}
+	require.NoError(t, err)
 	movieResults, ok := imdbRes["movie_results"].([]interface{})
-	if !ok || len(movieResults) == 0 {
-		t.Fatalf("expected movie_results, got: %v", imdbRes)
-	}
+	require.True(t, ok, "movie_results must be a list, got: %v", imdbRes)
+	assert.NotEmpty(t, movieResults)
 
-	// 2. SSE streaming response
 	javRes, err := client.SearchJapanesePorn(ctx, "SSIS-001")
-	if err != nil {
-		t.Fatalf("SearchJapanesePorn failed: %v", err)
-	}
-	if javRes["maker"] != "S1" {
-		t.Fatalf("expected maker S1, got %v", javRes["maker"])
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "S1", javRes["maker"])
 }

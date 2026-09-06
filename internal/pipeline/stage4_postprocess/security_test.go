@@ -3,12 +3,17 @@ package stage4postprocess
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"organizer/internal/model"
 )
 
 func mustStrPtr(s string) *string { return &s }
 
 func TestSanitizeRelativeTarget_TraversalBlocked(t *testing.T) {
+	t.Parallel()
+
 	malicious := []string{
 		"../../etc/passwd",
 		"../secret",
@@ -22,13 +27,17 @@ func TestSanitizeRelativeTarget_TraversalBlocked(t *testing.T) {
 	}
 
 	for _, target := range malicious {
-		if _, err := SanitizeRelativeTarget(target); err == nil {
-			t.Fatalf("target %q must be rejected", target)
-		}
+		t.Run(target, func(t *testing.T) {
+			t.Parallel()
+			_, err := SanitizeRelativeTarget(target)
+			assert.Error(t, err, "target %q must be rejected", target)
+		})
 	}
 }
 
 func TestSanitizeRelativeTarget_ValidPathsCleaned(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		input string
 		want  string
@@ -39,17 +48,19 @@ func TestSanitizeRelativeTarget_ValidPathsCleaned(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got, err := SanitizeRelativeTarget(tt.input)
-		if err != nil {
-			t.Fatalf("target %q unexpectedly rejected: %v", tt.input, err)
-		}
-		if got != tt.want {
-			t.Fatalf("SanitizeRelativeTarget(%q) = %q, want %q", tt.input, got, tt.want)
-		}
+		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := SanitizeRelativeTarget(tt.input)
+			require.NoError(t, err, "target %q must be accepted", tt.input)
+			assert.Equal(t, tt.want, got)
+		})
 	}
 }
 
 func TestSanitizePlan_GarbageFilesForcedSkip(t *testing.T) {
+	t.Parallel()
+
 	plan := []model.PlanAction{
 		{File: "Movie/cover.nfo", Action: "move", Target: mustStrPtr("movie/X/cover.nfo")},
 		{File: "Movie/site.url", Action: "move", Target: mustStrPtr("movie/X/site.url")},
@@ -58,24 +69,23 @@ func TestSanitizePlan_GarbageFilesForcedSkip(t *testing.T) {
 	}
 
 	sanitized := SanitizePlan(plan)
-	if len(sanitized) != len(plan) {
-		t.Fatalf("sanitize must not drop actions, got %d", len(sanitized))
-	}
+	assert.Len(t, sanitized, len(plan), "sanitize must not drop actions")
 
 	for _, file := range []string{"Movie/cover.nfo", "Movie/site.url", "Movie/movie.torrent"} {
 		action := findAction(t, sanitized, file)
-		if action.Action != "skip" || action.Target != nil {
-			t.Fatalf("garbage file %s must be skipped with null target, got %+v", file, action)
-		}
+		assert.Equal(t, "skip", action.Action, "garbage file %s must be skipped", file)
+		assert.Nil(t, action.Target, "garbage file %s must carry a null target", file)
 	}
 
 	keep := findAction(t, sanitized, "Movie/movie.mkv")
-	if keep.Action != "move" || keep.Target == nil || *keep.Target != "movie/X/movie.mkv" {
-		t.Fatalf("legitimate file must be kept: %+v", keep)
-	}
+	require.Equal(t, "move", keep.Action)
+	require.NotNil(t, keep.Target)
+	assert.Equal(t, "movie/X/movie.mkv", *keep.Target)
 }
 
 func TestSanitizePlan_MoveWithoutTargetOrEscapingTargetSkipped(t *testing.T) {
+	t.Parallel()
+
 	plan := []model.PlanAction{
 		{File: "a.mkv", Action: "move"},
 		{File: "b.mkv", Action: "move", Target: mustStrPtr("")},
@@ -88,20 +98,18 @@ func TestSanitizePlan_MoveWithoutTargetOrEscapingTargetSkipped(t *testing.T) {
 
 	for _, file := range []string{"a.mkv", "b.mkv", "c.mkv"} {
 		action := findAction(t, sanitized, file)
-		if action.Action != "skip" || action.Target != nil {
-			t.Fatalf("file %s must end up skipped with null target, got %+v", file, action)
-		}
+		assert.Equal(t, "skip", action.Action, "file %s must end up skipped", file)
+		assert.Nil(t, action.Target, "file %s must carry a null target", file)
 	}
 
 	skip := findAction(t, sanitized, "d.mkv")
-	if skip.Action != "skip" || skip.Target != nil {
-		t.Fatalf("skip actions must pass through unchanged: %+v", skip)
-	}
+	assert.Equal(t, "skip", skip.Action, "skip actions must pass through unchanged")
+	assert.Nil(t, skip.Target)
 
 	cleaned := findAction(t, sanitized, "e.mkv")
-	if cleaned.Action != "move" || cleaned.Target == nil || *cleaned.Target != "a/c.mkv" {
-		t.Fatalf("valid target must be cleaned: %+v", cleaned)
-	}
+	require.Equal(t, "move", cleaned.Action)
+	require.NotNil(t, cleaned.Target)
+	assert.Equal(t, "a/c.mkv", *cleaned.Target, "valid target must be cleaned")
 }
 
 func findAction(t *testing.T, actions []model.PlanAction, file string) model.PlanAction {
@@ -111,6 +119,6 @@ func findAction(t *testing.T, actions []model.PlanAction, file string) model.Pla
 			return a
 		}
 	}
-	t.Fatalf("action for file %q not found", file)
+	t.Fatalf("action for file %q not found in plan", file)
 	return model.PlanAction{}
 }

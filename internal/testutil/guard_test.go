@@ -3,41 +3,43 @@ package testutil_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"organizer/internal/testutil"
 )
 
 func TestSkipIfNoAPIKey_WhenSet(t *testing.T) {
+	// t.Setenv is incompatible with t.Parallel, so this case stays serial.
+
 	t.Setenv("XAI_API_KEY", "dummy-key")
 	t.Setenv("GEMINI_API_KEY", "dummy-key")
 
-	// Should not skip
+	// Should not skip.
 	testutil.SkipIfNoAPIKey(t, "grok")
 	testutil.SkipIfNoAPIKey(t, "gemini")
 	testutil.SkipIfNoAPIKey(t, "all")
+	assert.False(t, t.Skipped())
 }
 
 func TestSkipIfNoAPIKey_WhenMissing(t *testing.T) {
+	// t.Setenv is incompatible with t.Parallel, so this case stays serial.
+
 	t.Setenv("XAI_API_KEY", "")
 	t.Setenv("GEMINI_API_KEY", "")
 
-	t.Run("grok", func(t *testing.T) {
-		testutil.SkipIfNoAPIKey(t, "grok")
-		if !t.Skipped() {
-			t.Errorf("expected skip for provider grok when XAI_API_KEY unset")
-		}
-	})
+	tests := []struct {
+		provider string
+		keyEnv   string
+	}{
+		{"grok", "XAI_API_KEY"},
+		{"gemini", "GEMINI_API_KEY"},
+		{"all", "both keys"},
+	}
 
-	t.Run("gemini", func(t *testing.T) {
-		testutil.SkipIfNoAPIKey(t, "gemini")
-		if !t.Skipped() {
-			t.Errorf("expected skip for provider gemini when GEMINI_API_KEY unset")
-		}
-	})
-
-	t.Run("all", func(t *testing.T) {
-		testutil.SkipIfNoAPIKey(t, "all")
-		if !t.Skipped() {
-			t.Errorf("expected skip for provider all when both keys unset")
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.provider, func(t *testing.T) {
+			testutil.SkipIfNoAPIKey(t, tt.provider)
+			assert.True(t, t.Skipped(), "expected skip for provider %s when %s unset", tt.provider, tt.keyEnv)
+		})
+	}
 }

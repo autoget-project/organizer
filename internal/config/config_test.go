@@ -5,22 +5,25 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"organizer/internal/model"
 )
 
 func TestStartupCheckMissingEnv(t *testing.T) {
-	cfg := &Config{}
-	if err := StartupCheck(cfg); err == nil {
-		t.Errorf("expected error for empty config, got nil")
-	}
+	t.Parallel()
 
-	cfg.DownloadCompletedDir = "/tmp/download"
-	if err := StartupCheck(cfg); err == nil {
-		t.Errorf("expected error when TARGET_DIR missing")
-	}
+	cfg := &Config{}
+	require.Error(t, StartupCheck(cfg), "empty config must fail startup check")
+
+	cfg.DownloadCompletedDir = t.TempDir()
+	require.Error(t, StartupCheck(cfg), "missing TARGET_DIR must fail startup check")
 }
 
 func TestResolveProvider(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		model     string
@@ -30,41 +33,33 @@ func TestResolveProvider(t *testing.T) {
 		wantErr   bool
 	}{
 		{
-			name:      "neither key provided",
-			model:     "grok-beta",
-			xaiKey:    "",
-			geminiKey: "",
-			wantErr:   true,
+			name:    "neither key provided",
+			model:   "grok-beta",
+			wantErr: true,
 		},
 		{
-			name:      "xai prefix with key",
-			model:     "xai:grok-2",
-			xaiKey:    "xai-123",
-			geminiKey: "",
-			expected:  "grok",
-			wantErr:   false,
+			name:     "xai prefix with key",
+			model:    "xai:grok-2",
+			xaiKey:   "xai-123",
+			expected: "grok",
 		},
 		{
 			name:      "xai prefix without key",
 			model:     "xai:grok-2",
-			xaiKey:    "",
 			geminiKey: "gemini-123",
 			wantErr:   true,
 		},
 		{
 			name:      "gemini prefix with key",
 			model:     "gemini:gemini-1.5-flash",
-			xaiKey:    "",
 			geminiKey: "gemini-123",
 			expected:  "gemini",
-			wantErr:   false,
 		},
 		{
-			name:      "gemini prefix without key",
-			model:     "gemini:gemini-1.5-flash",
-			xaiKey:    "xai-123",
-			geminiKey: "",
-			wantErr:   true,
+			name:    "gemini prefix without key",
+			model:   "gemini:gemini-1.5-flash",
+			xaiKey:  "xai-123",
+			wantErr: true,
 		},
 		{
 			name:      "both keys present and xai prefix",
@@ -72,7 +67,6 @@ func TestResolveProvider(t *testing.T) {
 			xaiKey:    "xai-123",
 			geminiKey: "gemini-123",
 			expected:  "grok",
-			wantErr:   false,
 		},
 		{
 			name:      "both keys present and gemini prefix",
@@ -80,15 +74,13 @@ func TestResolveProvider(t *testing.T) {
 			xaiKey:    "xai-123",
 			geminiKey: "gemini-123",
 			expected:  "gemini",
-			wantErr:   false,
 		},
 		{
-			name:      "explicit prefix beats substring keyword (gemini:grok)",
+			name:      "explicit prefix beats substring keyword",
 			model:     "gemini:grok-4",
 			xaiKey:    "xai-123",
 			geminiKey: "gemini-123",
 			expected:  "gemini",
-			wantErr:   false,
 		},
 		{
 			name:      "both keys present without prefix or keyword",
@@ -98,45 +90,42 @@ func TestResolveProvider(t *testing.T) {
 			wantErr:   true,
 		},
 		{
-			name:      "single xai key fallback",
-			model:     "custom-model",
-			xaiKey:    "xai-123",
-			geminiKey: "",
-			expected:  "grok",
-			wantErr:   false,
+			name:     "single xai key fallback",
+			model:    "custom-model",
+			xaiKey:   "xai-123",
+			expected: "grok",
 		},
 		{
 			name:      "single gemini key fallback",
 			model:     "custom-model",
-			xaiKey:    "",
 			geminiKey: "gemini-123",
 			expected:  "gemini",
-			wantErr:   false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got, err := ResolveProvider(tt.model, tt.xaiKey, tt.geminiKey)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ResolveProvider() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
-			if got != tt.expected {
-				t.Errorf("ResolveProvider() got = %v, want %v", got, tt.expected)
-			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
 
 func TestStartupCheckDirectories(t *testing.T) {
+	t.Parallel()
+
 	tempDir := t.TempDir()
 	targetDir := filepath.Join(tempDir, "target")
 	downloadDir := filepath.Join(tempDir, "download")
-
-	if err := os.MkdirAll(downloadDir, 0755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(downloadDir, 0o755))
 
 	cfg := &Config{
 		DownloadCompletedDir: downloadDir,
@@ -148,31 +137,18 @@ func TestStartupCheckDirectories(t *testing.T) {
 		XaiAPIKey:            "valid-key",
 	}
 
-	// targetDir does not exist yet -> should fail
-	if err := StartupCheck(cfg); err == nil {
-		t.Errorf("expected StartupCheck to fail when targetDir does not exist")
-	}
+	// targetDir does not exist yet.
+	require.Error(t, StartupCheck(cfg))
 
-	// Create targetDir but missing subdirectories -> should fail
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := StartupCheck(cfg); err == nil {
-		t.Errorf("expected StartupCheck to fail when subdirectories are missing")
-	}
+	// targetDir exists but the required subdirectories are missing.
+	require.NoError(t, os.MkdirAll(targetDir, 0o755))
+	require.Error(t, StartupCheck(cfg))
 
-	// Create all required subdirectories (including anim_movie and anim_tv_series)
+	// All required subdirectories present (including anim_movie and
+	// anim_tv_series): startup check must now succeed.
 	for _, sub := range model.AllTargetDirs {
-		if err := os.MkdirAll(filepath.Join(targetDir, string(sub)), 0755); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.MkdirAll(filepath.Join(targetDir, string(sub)), 0o755))
 	}
-
-	// Now should succeed
-	if err := StartupCheck(cfg); err != nil {
-		t.Errorf("expected StartupCheck to succeed, got error: %v", err)
-	}
-	if cfg.Provider != "grok" {
-		t.Errorf("expected provider grok, got %s", cfg.Provider)
-	}
+	require.NoError(t, StartupCheck(cfg))
+	assert.Equal(t, "grok", cfg.Provider)
 }

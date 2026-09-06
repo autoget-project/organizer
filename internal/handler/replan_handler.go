@@ -49,8 +49,7 @@ func NewReplanHandler(provider ai.Provider) *ReplanHandler {
 // classification and Stage 2 metadata retrieval are never re-run. The domain
 // is inferred from the first move target of the previous plan (L14): known
 // category roots route to the matching Stage 3 domain LLM replan; anything
-// else (empty plan or unknown root) falls back to the generic replan prompt
-// aligned with the legacy replan_agent.py.
+// else (empty plan or unknown root) falls back to the generic replan prompt.
 func (h *ReplanHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	var req model.APIReplanRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -88,8 +87,8 @@ func (h *ReplanHandler) callReplanLLM(ctx context.Context, req model.APIReplanRe
 		}
 		prompt = fmt.Sprintf(domainReplanPrompt(domain), string(payload))
 	} else {
-		// Fallback: generic replan prompt aligned with the legacy
-		// replan_agent.py (revises the whole plan based on the user hint).
+		// Fallback: generic replan prompt (revises the whole plan based on
+		// the user hint).
 		payload, err := json.Marshal(map[string]interface{}{
 			"original_request":  map[string]interface{}{"files": req.Files, "metadata": req.Metadata},
 			"previous_response": req.PreviousResponse,

@@ -18,8 +18,7 @@ var (
 	bangoRegex = regexp.MustCompile(`(?i)([A-Z]{2,5}-\d{2,7}|FC2(?:-PPV)?-\d{4,8}|(?:MD|MDCM|MDHG|MDHT|MDL|MDSR|MSD)-\d{2,7})`)
 )
 
-// madouLabels mirrors the Python prompt's exact prefix set
-// (archived/app/agents/categorizer/is_bango_porn.py).
+// madouLabels is the exact Madou label prefix set.
 var madouLabels = map[string]struct{}{
 	"MD": {}, "MDCM": {}, "MDHG": {}, "MDHT": {}, "MDL": {}, "MDSR": {}, "MSD": {},
 }
@@ -278,7 +277,7 @@ func (e *Enricher) enrichPorn(ctx context.Context, files []string, metadata map[
 	return enriched, nil
 }
 
-// vrPrefixes mirrors the Python prefix list (archived bango mover).
+// vrPrefixes lists the known VR series labels.
 var vrPrefixes = []string{"IPVR", "DSVR", "HNVR", "JUVR", "MDVR", "SIVR"}
 
 // hasVRMarker reports whether s carries a VR indicator: an explicit VR series

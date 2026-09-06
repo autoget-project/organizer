@@ -5,6 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"organizer/internal/ai"
 )
 
@@ -26,113 +29,66 @@ type SampleStruct struct {
 }
 
 func TestGenerateStrictJSONSchema(t *testing.T) {
+	t.Parallel()
+
 	schema, err := ai.GenerateStrictJSONSchema(SampleStruct{})
-	if err != nil {
-		t.Fatalf("GenerateStrictJSONSchema failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if schema.Type != "object" {
-		t.Errorf("expected schema.Type object, got %s", schema.Type)
-	}
+	assert.Equal(t, "object", schema.Type)
+	assert.Equal(t, false, schema.AdditionalProperties, "additionalProperties must be false in strict mode")
 
-	if schema.AdditionalProperties != false {
-		t.Errorf("expected additionalProperties to be false in strict mode")
+	// Strict mode requires every exported non-ignored field, including the
+	// omitempty one.
+	expectedRequired := []string{
+		"title",
+		"season",
+		"is_anim",
+		"tags",
+		"category",
+		"nested",
+		"nested_slice",
+		"optional",
 	}
+	assert.ElementsMatch(t, expectedRequired, schema.Required)
 
-	// Verify required fields include all exported non-ignored fields in strict mode
-	expectedRequired := map[string]bool{
-		"title":        true,
-		"season":       true,
-		"is_anim":      true,
-		"tags":         true,
-		"category":     true,
-		"nested":       true,
-		"nested_slice": true,
-		"optional":     true,
-	}
+	assert.NotContains(t, schema.Properties, "ignored", `json:"-" field must not appear in properties`)
 
-	for _, req := range schema.Required {
-		delete(expectedRequired, req)
-	}
-	if len(expectedRequired) > 0 {
-		t.Errorf("missing required fields in strict schema: %v", expectedRequired)
-	}
-	// Surplus required entries (e.g. a json:"-" field leaking in) must also fail.
-	actualRequired := make(map[string]bool, len(schema.Required))
-	for _, req := range schema.Required {
-		if _, dup := actualRequired[req]; dup {
-			t.Errorf("duplicate required field in strict schema: %s", req)
-		}
-		actualRequired[req] = true
-	}
-	for _, req := range schema.Required {
-		switch req {
-		case "title", "season", "is_anim", "tags", "category", "nested", "nested_slice", "optional":
-		default:
-			t.Errorf("unexpected required field in strict schema: %s", req)
-		}
-	}
-	if _, exists := schema.Properties["ignored"]; exists {
-		t.Errorf("json:\"-\" field should not appear in properties")
-	}
-
-	// Verify properties
 	titleProp, ok := schema.Properties["title"]
-	if !ok || titleProp.Type != "string" || titleProp.Description != "The title of the item" {
-		t.Errorf("invalid title property: %+v", titleProp)
-	}
+	require.True(t, ok, "title property must exist")
+	assert.Equal(t, "string", titleProp.Type)
+	assert.Equal(t, "The title of the item", titleProp.Description)
 
 	catProp, ok := schema.Properties["category"]
-	if !ok || len(catProp.Enum) != 3 {
-		t.Errorf("invalid category enum property: %+v", catProp)
-	}
+	require.True(t, ok, "category property must exist")
+	assert.Len(t, catProp.Enum, 3)
 
-	// Verify nested struct in strict mode
 	nestedProp, ok := schema.Properties["nested"]
-	if !ok || nestedProp.Type != "object" || nestedProp.AdditionalProperties != false {
-		t.Errorf("invalid nested property: %+v", nestedProp)
-	}
-	if len(nestedProp.Required) != 2 {
-		t.Errorf("expected 2 required fields in nested struct, got %d", len(nestedProp.Required))
-	}
+	require.True(t, ok, "nested property must exist")
+	assert.Equal(t, "object", nestedProp.Type)
+	assert.Equal(t, false, nestedProp.AdditionalProperties)
+	assert.Len(t, nestedProp.Required, 2)
 
-	// Verify marshalable to JSON
-	bytes, err := json.Marshal(schema)
-	if err != nil {
-		t.Fatalf("failed to marshal JSONSchema: %v", err)
-	}
-	if len(bytes) == 0 {
-		t.Errorf("marshaled json is empty")
-	}
+	data, err := json.Marshal(schema)
+	require.NoError(t, err)
+	assert.NotEmpty(t, data)
 }
 
 func TestGenerateOpenAPISchema(t *testing.T) {
+	t.Parallel()
+
 	schema, err := ai.GenerateOpenAPISchema(SampleStruct{})
-	if err != nil {
-		t.Fatalf("GenerateOpenAPISchema failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if schema.Type != "object" {
-		t.Errorf("expected schema.Type object, got %s", schema.Type)
-	}
-
-	if schema.AdditionalProperties != nil {
-		t.Errorf("expected additionalProperties to be omitted in OpenAPI mode, got %v", schema.AdditionalProperties)
-	}
-
-	// Optional field has omitempty, so it should not be in required
-	for _, req := range schema.Required {
-		if req == "optional" {
-			t.Errorf("field with omitempty should not be required in OpenAPI mode")
-		}
-	}
+	assert.Equal(t, "object", schema.Type)
+	assert.Nil(t, schema.AdditionalProperties, "additionalProperties must be omitted in OpenAPI mode")
+	assert.NotContains(t, schema.Required, "optional", "field with omitempty must not be required in OpenAPI mode")
 }
 
 func TestGenerateSchema_Nil(t *testing.T) {
+	t.Parallel()
+
 	_, err := ai.GenerateStrictJSONSchema(nil)
-	if err == nil {
-		t.Errorf("expected error for nil, got nil")
-	}
+	assert.Error(t, err)
 }
 
 type MapTimeStruct struct {
@@ -143,35 +99,29 @@ type MapTimeStruct struct {
 }
 
 func TestGenerateSchema_MapsAndTime(t *testing.T) {
+	t.Parallel()
+
 	schema, err := ai.GenerateStrictJSONSchema(MapTimeStruct{})
-	if err != nil {
-		t.Fatalf("GenerateStrictJSONSchema failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	metaProp, ok := schema.Properties["meta"]
-	if !ok || metaProp.Type != "object" {
-		t.Fatalf("invalid meta property: %+v", metaProp)
-	}
+	require.True(t, ok, "meta property must exist")
+	assert.Equal(t, "object", metaProp.Type)
 	metaVal, ok := metaProp.AdditionalProperties.(ai.JSONSchema)
-	if !ok || metaVal.Type != "string" {
-		t.Errorf("expected meta additionalProperties {type:string}, got %v", metaProp.AdditionalProperties)
-	}
+	require.True(t, ok, "meta additionalProperties must be a JSONSchema")
+	assert.Equal(t, "string", metaVal.Type)
 
 	anyProp, ok := schema.Properties["any"]
-	if !ok || anyProp.AdditionalProperties != true {
-		t.Errorf("expected any additionalProperties true, got %v", anyProp.AdditionalProperties)
-	}
+	require.True(t, ok, "any property must exist")
+	assert.Equal(t, true, anyProp.AdditionalProperties)
 
 	whenProp, ok := schema.Properties["when"]
-	if !ok || whenProp.Type != "string" {
-		t.Errorf("expected time.Time mapped to {type:string}, got %+v", whenProp)
-	}
+	require.True(t, ok, "when property must exist")
+	assert.Equal(t, "string", whenProp.Type, "time.Time must map to {type: string}")
 
 	pointsProp, ok := schema.Properties["points"]
-	if !ok || pointsProp.Type != "array" {
-		t.Fatalf("invalid points property: %+v", pointsProp)
-	}
-	if pointsProp.Items == nil || pointsProp.Items.AdditionalProperties == nil {
-		t.Errorf("expected points items to carry typed additionalProperties, got %+v", pointsProp.Items)
-	}
+	require.True(t, ok, "points property must exist")
+	assert.Equal(t, "array", pointsProp.Type)
+	require.NotNil(t, pointsProp.Items)
+	assert.NotNil(t, pointsProp.Items.AdditionalProperties, "points items must carry typed additionalProperties")
 }

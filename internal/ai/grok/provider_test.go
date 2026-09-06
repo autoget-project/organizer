@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"organizer/internal/ai"
 	"organizer/internal/ai/grok"
@@ -21,42 +23,27 @@ type TestOutput struct {
 }
 
 func TestGrokProvider_Success(t *testing.T) {
+	t.Parallel()
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
-		if r.URL.Path != "/chat/completions" {
-			t.Errorf("expected path /chat/completions, got %s", r.URL.Path)
-		}
-		auth := r.Header.Get("Authorization")
-		if auth != "Bearer test-api-key" {
-			t.Errorf("expected Bearer test-api-key, got %s", auth)
-		}
+		// Assertions inside the server goroutine must stay non-fatal.
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/chat/completions", r.URL.Path)
+		assert.Equal(t, "Bearer test-api-key", r.Header.Get("Authorization"))
 
 		var reqBody map[string]interface{}
-		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
-			t.Fatalf("failed to decode request body: %v", err)
-		}
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&reqBody))
 
-		// Verify model and temperature
-		if reqBody["model"] != "grok-test" {
-			t.Errorf("expected model grok-test, got %v", reqBody["model"])
-		}
-		if reqBody["temperature"].(float64) != 0.1 {
-			t.Errorf("expected temperature 0.1, got %v", reqBody["temperature"])
-		}
+		assert.Equal(t, "grok-test", reqBody["model"])
+		assert.InDelta(t, 0.1, reqBody["temperature"], 0.0001)
 
-		respFormat := reqBody["response_format"].(map[string]interface{})
-		if respFormat["type"] != "json_schema" {
-			t.Errorf("expected response_format.type json_schema, got %v", respFormat["type"])
-		}
-		jsonSchema := respFormat["json_schema"].(map[string]interface{})
-		if jsonSchema["strict"] != true {
-			t.Errorf("expected response_format.json_schema.strict true, got %v", jsonSchema["strict"])
-		}
-		if jsonSchema["name"] == nil || jsonSchema["name"] == "" {
-			t.Errorf("expected response_format.json_schema.name to be set, got %v", jsonSchema["name"])
-		}
+		respFormat, ok := reqBody["response_format"].(map[string]interface{})
+		require.True(t, ok, "response_format must be an object")
+		assert.Equal(t, "json_schema", respFormat["type"])
+		jsonSchema, ok := respFormat["json_schema"].(map[string]interface{})
+		require.True(t, ok, "response_format.json_schema must be an object")
+		assert.Equal(t, true, jsonSchema["strict"])
+		assert.NotEmpty(t, jsonSchema["name"], "response_format.json_schema.name must be set")
 
 		resp := map[string]interface{}{
 			"choices": []map[string]interface{}{
@@ -70,47 +57,41 @@ func TestGrokProvider_Success(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)
 	}))
-	defer ts.Close()
+	t.Cleanup(ts.Close)
 
 	provider := grok.NewProvider("test-api-key",
 		ai.WithBaseURL(ts.URL),
 		ai.WithModel("xai:grok-test"),
 		ai.WithTimeout(5*time.Second),
 	)
-
-	if provider.Name() != "grok" {
-		t.Errorf("expected name grok, got %s", provider.Name())
-	}
+	assert.Equal(t, "grok", provider.Name())
 
 	var out TestOutput
-	err := provider.GenerateStructured(context.Background(), "test prompt", TestOutput{}, &out)
-	if err != nil {
-		t.Fatalf("GenerateStructured failed: %v", err)
-	}
-
-	if out.Name != "test-item" || out.Count != 42 {
-		t.Errorf("unexpected parsed result: %+v", out)
-	}
+	require.NoError(t, provider.GenerateStructured(context.Background(), "test prompt", TestOutput{}, &out))
+	assert.Equal(t, TestOutput{Name: "test-item", Count: 42}, out)
 }
 
 func TestGrokProvider_ErrorStatus(t *testing.T) {
-	for _, status := range []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusInternalServerError} {
+	t.Parallel()
+
+	statuses := []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusInternalServerError}
+
+	for _, status := range statuses {
 		t.Run(fmt.Sprintf("status_%d", status), func(t *testing.T) {
+			t.Parallel()
+
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(status)
 				_, _ = w.Write([]byte(`{"error":{"message":"boom","type":"api_error"}}`))
 			}))
-			defer ts.Close()
+			t.Cleanup(ts.Close)
 
 			provider := grok.NewProvider("bad-key", ai.WithBaseURL(ts.URL))
+
 			var out TestOutput
 			err := provider.GenerateStructured(context.Background(), "test prompt", TestOutput{}, &out)
-			if err == nil {
-				t.Fatalf("expected error on %d, got nil", status)
-			}
-			if !strings.Contains(err.Error(), strconv.Itoa(status)) {
-				t.Errorf("expected status %d in error message, got %v", status, err)
-			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), strconv.Itoa(status))
 		})
 	}
 }

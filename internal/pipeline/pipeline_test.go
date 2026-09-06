@@ -7,23 +7,29 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"organizer/internal/ai/mock"
 	"organizer/internal/model"
 	"organizer/internal/pipeline/stage2_enricher"
 )
 
+func newTestPipeline(t *testing.T, prov *mock.Provider, dir string) *Pipeline {
+	t.Helper()
+	return NewPipeline(prov, stage2enricher.NewEnricher(nil, nil, nil), dir)
+}
+
 func TestCreatePlan_TVSeriesFullFlow(t *testing.T) {
+	t.Parallel()
+
 	downloadDir := t.TempDir()
 
-	// Sandbox files: dirty video name, companion subtitle and garbage.
+	// Seed files: dirty video name, companion subtitle and garbage.
 	subDir := filepath.Join(downloadDir, "show1")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(subDir, 0o755))
 	subtitleContent := "1\n00:00:01,000 --> 00:00:02,000\n你好世界\n"
-	if err := os.WriteFile(filepath.Join(subDir, "show.chs.srt"), []byte(subtitleContent), 0644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, "show.chs.srt"), []byte(subtitleContent), 0o644))
 
 	prov := mock.NewProvider()
 	prov.AddRule(mock.Rule{
@@ -41,26 +47,13 @@ func TestCreatePlan_TVSeriesFullFlow(t *testing.T) {
 			"matched_video":"[HDSky] 我的剧 S01E01.mkv","language":"Chinese"}]}`,
 	})
 
-	enricher := stage2enricher.NewEnricher(nil, nil, nil)
-	p := NewPipeline(prov, enricher, downloadDir)
+	p := newTestPipeline(t, prov, downloadDir)
 
-	files := []string{
-		"[HDSky] 我的剧 S01E01.mkv",
-		"show.chs.srt",
-		"cover.nfo",
-	}
-	metadata := map[string]interface{}{
-		"title": "我的剧",
-		"year":  2020.0,
-	}
-
-	resp, err := p.CreatePlan(context.Background(), "show1", files, metadata)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if resp.Error != nil {
-		t.Fatalf("normal planning must keep error null, got %s", *resp.Error)
-	}
+	resp, err := p.CreatePlan(context.Background(), "show1",
+		[]string{"[HDSky] 我的剧 S01E01.mkv", "show.chs.srt", "cover.nfo"},
+		map[string]interface{}{"title": "我的剧", "year": 2020.0})
+	require.NoError(t, err)
+	require.Nil(t, resp.Error, "normal planning must keep error null")
 
 	actionsByFile := map[string]model.PlanAction{}
 	for _, a := range resp.Plan {
@@ -68,32 +61,27 @@ func TestCreatePlan_TVSeriesFullFlow(t *testing.T) {
 	}
 
 	video := actionsByFile["[HDSky] 我的剧 S01E01.mkv"]
-	if video.Action != "move" || video.Target == nil ||
-		*video.Target != "tv_series/Others/我的剧 (2020)/Season 01/我的剧 (2020) S01E01.mkv" {
-		t.Fatalf("unexpected video action: %+v", video)
-	}
+	require.NotNil(t, video.Target)
+	assert.Equal(t, "move", video.Action)
+	assert.Equal(t, "tv_series/Others/我的剧 (2020)/Season 01/我的剧 (2020) S01E01.mkv", *video.Target)
 
 	sub := actionsByFile["show.chs.srt"]
-	if sub.Action != "move" || sub.Target == nil ||
-		*sub.Target != "tv_series/Others/我的剧 (2020)/Season 01/我的剧 (2020) S01E01.简体中文.chi.srt" {
-		t.Fatalf("unexpected subtitle action: %+v", sub)
-	}
+	require.NotNil(t, sub.Target)
+	assert.Equal(t, "move", sub.Action)
+	assert.Equal(t, "tv_series/Others/我的剧 (2020)/Season 01/我的剧 (2020) S01E01.简体中文.chi.srt", *sub.Target)
 
 	garbage := actionsByFile["cover.nfo"]
-	if garbage.Action != "skip" || garbage.Target != nil {
-		t.Fatalf("garbage must be skipped with null target, got %+v", garbage)
-	}
+	assert.Equal(t, "skip", garbage.Action)
+	assert.Nil(t, garbage.Target, "garbage must be skipped with null target")
 }
 
 func TestCreatePlan_SubtitlePairingFailureDegradesGracefully(t *testing.T) {
+	t.Parallel()
+
 	downloadDir := t.TempDir()
 	subDir := filepath.Join(downloadDir, "movie1")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(subDir, "sub.srt"), []byte("hello"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(subDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, "sub.srt"), []byte("hello"), 0o644))
 
 	prov := mock.NewProvider()
 	prov.AddRule(mock.Rule{
@@ -110,18 +98,13 @@ func TestCreatePlan_SubtitlePairingFailureDegradesGracefully(t *testing.T) {
 		Error:         errors.New("subtitle pairing offline"),
 	})
 
-	enricher := stage2enricher.NewEnricher(nil, nil, nil)
-	p := NewPipeline(prov, enricher, downloadDir)
+	p := newTestPipeline(t, prov, downloadDir)
 
 	resp, err := p.CreatePlan(context.Background(), "movie1",
 		[]string{"movie.mkv", "sub.srt"},
 		map[string]interface{}{"title": "电影", "year": 2000.0})
-	if err != nil {
-		t.Fatalf("subtitle pairing failure must degrade, not fail: %v", err)
-	}
-	if resp.Error != nil {
-		t.Fatalf("error must stay null on degradation, got %s", *resp.Error)
-	}
+	require.NoError(t, err, "subtitle pairing failure must degrade, not fail")
+	require.Nil(t, resp.Error, "error must stay null on degradation")
 
 	videoFound, subFound := false, false
 	for _, a := range resp.Plan {
@@ -132,36 +115,30 @@ func TestCreatePlan_SubtitlePairingFailureDegradesGracefully(t *testing.T) {
 			subFound = true
 		}
 	}
-	if !videoFound {
-		t.Fatalf("video plan must survive subtitle failure")
-	}
-	if subFound {
-		t.Fatalf("subtitle must be left unplanned after pairing failure")
-	}
+	assert.True(t, videoFound, "video plan must survive subtitle failure")
+	assert.False(t, subFound, "subtitle must be left unplanned after pairing failure")
 }
 
 func TestCreatePlan_UnknownCategoryEmptyPlan(t *testing.T) {
+	t.Parallel()
+
 	prov := mock.NewProvider()
 	prov.AddRule(mock.Rule{
 		PromptPattern: "media categorization assistant",
 		Response:      `{"category":"unknown","reason":"random junk","entities":{}}`,
 	})
 
-	p := NewPipeline(prov, stage2enricher.NewEnricher(nil, nil, nil), t.TempDir())
+	p := newTestPipeline(t, prov, t.TempDir())
 
 	resp, err := p.CreatePlan(context.Background(), "junk", []string{"junk.bin"}, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if resp.Error != nil {
-		t.Fatalf("error must stay null, got %s", *resp.Error)
-	}
-	if len(resp.Plan) != 0 {
-		t.Fatalf("unknown category must return an empty plan, got %+v", resp.Plan)
-	}
+	require.NoError(t, err)
+	assert.Nil(t, resp.Error)
+	assert.Empty(t, resp.Plan, "unknown category must return an empty plan")
 }
 
 func TestCreatePlan_Stage3LLMFailureIsFatal(t *testing.T) {
+	t.Parallel()
+
 	prov := mock.NewProvider()
 	prov.AddRule(mock.Rule{
 		PromptPattern: "media categorization assistant",
@@ -169,10 +146,8 @@ func TestCreatePlan_Stage3LLMFailureIsFatal(t *testing.T) {
 	})
 	// No tv planner rule -> mock provider returns its default error.
 
-	p := NewPipeline(prov, stage2enricher.NewEnricher(nil, nil, nil), t.TempDir())
+	p := newTestPipeline(t, prov, t.TempDir())
 
 	_, err := p.CreatePlan(context.Background(), "show", []string{"show/ep01.mkv"}, nil)
-	if err == nil {
-		t.Fatalf("stage 3 LLM failure must surface as a fatal error")
-	}
+	assert.Error(t, err, "stage 3 LLM failure must surface as a fatal error")
 }

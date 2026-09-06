@@ -4,14 +4,17 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"organizer/internal/ai/mock"
 	"organizer/internal/model"
 )
 
 func TestClassifierLLM_AudioDisambiguation(t *testing.T) {
-	mockProv := mock.NewProvider()
+	t.Parallel()
 
-	// Rule 1: Audiobook chapters
+	mockProv := mock.NewProvider()
 	mockProv.AddRule(mock.Rule{
 		PromptPattern: "Audiobook - Chapter 1.mp3",
 		Response: ClassifierLLMResponse{
@@ -19,8 +22,6 @@ func TestClassifierLLM_AudioDisambiguation(t *testing.T) {
 			Reason:   "Filenames represent chapters of an audiobook",
 		},
 	})
-
-	// Rule 2: Music album
 	mockProv.AddRule(mock.Rule{
 		PromptPattern: "01. Taylor Swift - Blank Space.flac",
 		Response: ClassifierLLMResponse{
@@ -30,57 +31,48 @@ func TestClassifierLLM_AudioDisambiguation(t *testing.T) {
 	})
 
 	llm := NewClassifierLLM(mockProv)
-	ctx := context.Background()
 
-	// Test 1: Audio book sample
-	res1, err := llm.Classify(ctx, []string{"Audiobook - Chapter 1.mp3", "Audiobook - Chapter 2.mp3"}, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if res1.Category != model.CategoryAudioBook {
-		t.Fatalf("expected CategoryAudioBook, got %s", res1.Category)
+	tests := []struct {
+		name         string
+		files        []string
+		wantCategory model.Category
+	}{
+		{"audio book chapters", []string{"Audiobook - Chapter 1.mp3", "Audiobook - Chapter 2.mp3"}, model.CategoryAudioBook},
+		{"music track", []string{"01. Taylor Swift - Blank Space.flac"}, model.CategoryMusic},
 	}
 
-	// Test 2: Music sample
-	res2, err := llm.Classify(ctx, []string{"01. Taylor Swift - Blank Space.flac"}, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if res2.Category != model.CategoryMusic {
-		t.Fatalf("expected CategoryMusic, got %s", res2.Category)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			res, err := llm.Classify(context.Background(), tt.files, nil)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantCategory, res.Category)
+		})
 	}
 }
 
 func TestClassifyPipeline_Integration(t *testing.T) {
+	t.Parallel()
+
 	mockProv := mock.NewProvider()
 	mockProv.SetDefaultResponse(ClassifierLLMResponse{
 		Category: model.CategoryMovie,
 		Reason:   "Extracted movie from noisy release group string",
 	}, nil)
-
 	ctx := context.Background()
 
-	// 1. Matched by rule (pure book) -> should NOT call LLM
+	// Matched by rule (pure book): the LLM must never be called.
 	res1, err := ClassifyPipeline(ctx, mockProv, []string{"document.pdf"}, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if res1.Category != model.CategoryBook || res1.NeedLLM {
-		t.Fatalf("expected CategoryBook without LLM, got %s (%t)", res1.Category, res1.NeedLLM)
-	}
-	if len(mockProv.Calls()) != 0 {
-		t.Fatalf("expected 0 mock calls, got %d", len(mockProv.Calls()))
-	}
+	require.NoError(t, err)
+	assert.False(t, res1.NeedLLM)
+	assert.Equal(t, model.CategoryBook, res1.Category)
+	assert.Empty(t, mockProv.Calls(), "rule match must not invoke the LLM")
 
-	// 2. Unmatched by rule (dirty filename) -> should invoke LLM
+	// Unmatched by rule (dirty filename): the LLM must be invoked.
 	res2, err := ClassifyPipeline(ctx, mockProv, []string{"[HDSky] Inception.2010.1080p.mkv"}, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if res2.Category != model.CategoryMovie || !res2.NeedLLM {
-		t.Fatalf("expected CategoryMovie with LLM, got %s (%t)", res2.Category, res2.NeedLLM)
-	}
-	if len(mockProv.Calls()) != 1 {
-		t.Fatalf("expected 1 mock call, got %d", len(mockProv.Calls()))
-	}
+	require.NoError(t, err)
+	assert.True(t, res2.NeedLLM)
+	assert.Equal(t, model.CategoryMovie, res2.Category)
+	assert.Len(t, mockProv.Calls(), 1)
 }
