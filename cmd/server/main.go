@@ -92,7 +92,7 @@ func resolveProvider(cfg *config.Config) (ai.Provider, error) {
 	case "grok":
 		return grok.NewProvider(cfg.XaiAPIKey, ai.WithModel(cfg.Model)), nil
 	case "gemini":
-		return gemini.NewProvider(cfg.GeminiAPIKey, ai.WithModel(cfg.Model)), nil
+		return gemini.NewProvider(cfg.GeminiAPIKey, ai.WithModel(cfg.Model))
 	default:
 		return nil, errors.New("MODEL must reference a grok or gemini provider (use xai: or gemini: prefix)")
 	}

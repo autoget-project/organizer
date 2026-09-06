@@ -55,11 +55,12 @@ func TestGeminiProvider_Success(t *testing.T) {
 	}))
 	t.Cleanup(ts.Close)
 
-	provider := gemini.NewProvider("test-gemini-key",
+	provider, err := gemini.NewProvider("test-gemini-key",
 		ai.WithBaseURL(ts.URL),
 		ai.WithModel("gemini:gemini-1.5-flash"),
 		ai.WithTimeout(5*time.Second),
 	)
+	require.NoError(t, err)
 	assert.Equal(t, "gemini", provider.Name())
 
 	var out TestOutput
@@ -76,10 +77,11 @@ func TestGeminiProvider_APIError(t *testing.T) {
 	}))
 	t.Cleanup(ts.Close)
 
-	provider := gemini.NewProvider("bad-key", ai.WithBaseURL(ts.URL))
+	provider, err := gemini.NewProvider("bad-key", ai.WithBaseURL(ts.URL))
+	require.NoError(t, err)
 
 	var out TestOutput
-	err := provider.GenerateStructured(context.Background(), "test prompt", TestOutput{}, &out)
+	err = provider.GenerateStructured(context.Background(), "test prompt", TestOutput{}, &out)
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "400"), "error must mention the status code, got %v", err)
 }

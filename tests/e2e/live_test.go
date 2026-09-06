@@ -30,10 +30,18 @@ func TestE2E_LiveProviderBusinessLoop(t *testing.T) {
 	targets := []struct {
 		modelEnv string
 		keyEnv   string
-		newProv  func(modelName, apiKey string) ai.Provider
+		newProv  func(t *testing.T, modelName, apiKey string) ai.Provider
 	}{
-		{"XAI_MODEL", "XAI_API_KEY", func(m, k string) ai.Provider { return grok.NewProvider(k, ai.WithModel(m)) }},
-		{"GEMINI_MODEL", "GEMINI_API_KEY", func(m, k string) ai.Provider { return gemini.NewProvider(k, ai.WithModel(m)) }},
+		{"XAI_MODEL", "XAI_API_KEY", func(t *testing.T, m, k string) ai.Provider {
+			t.Helper()
+			return grok.NewProvider(k, ai.WithModel(m))
+		}},
+		{"GEMINI_MODEL", "GEMINI_API_KEY", func(t *testing.T, m, k string) ai.Provider {
+			t.Helper()
+			prov, err := gemini.NewProvider(k, ai.WithModel(m))
+			require.NoError(t, err)
+			return prov
+		}},
 	}
 
 	configured := false
@@ -50,7 +58,7 @@ func TestE2E_LiveProviderBusinessLoop(t *testing.T) {
 			if apiKey == "" {
 				t.Skipf("Skipping live loop: %s is set but %s is missing", target.modelEnv, target.keyEnv)
 			}
-			runLiveBusinessLoop(t, target.newProv(modelName, apiKey))
+			runLiveBusinessLoop(t, target.newProv(t, modelName, apiKey))
 		})
 	}
 	if !configured {
