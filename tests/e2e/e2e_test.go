@@ -8,9 +8,11 @@
 // Offline CI: LLM-dependent paths run against the deterministic mock provider
 // (rule-based structured responses identical to what the real LLM must
 // return), so `just test` / `just test-e2e` never break offline builds.
-// Live CI: TestE2E_LiveProviderBusinessLoop is guarded by
-// testutil.SkipIfNoAPIKey - it gracefully skips without keys and runs the
-// real business closed loop as soon as XAI_API_KEY / GEMINI_API_KEY exist.
+// Live CI: TestE2E_LiveProviderBusinessLoop loads the gitignored .env.e2e
+// (XAI_API_KEY / GEMINI_API_KEY plus per-provider XAI_MODEL / GEMINI_MODEL,
+// already-exported variables win) - it gracefully skips without configuration
+// and runs the real business closed loop for every configured provider in
+// parallel subtests.
 package e2e
 
 import (
@@ -29,7 +31,6 @@ import (
 	"organizer/internal/ai/gemini"
 	"organizer/internal/ai/grok"
 	"organizer/internal/ai/mock"
-	"organizer/internal/config"
 	"organizer/internal/handler"
 	"organizer/internal/model"
 	"organizer/internal/pipeline"
@@ -869,32 +870,50 @@ func TestE2E_ReplanWithHintLifecycle(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Live guard test: without XAI_API_KEY / GEMINI_API_KEY this test is skipped
-// 100% gracefully (offline CI never breaks); with a key it drives the real
-// provider through the full business closed loop.
 // ---------------------------------------------------------------------------
 
 func TestE2E_LiveProviderBusinessLoop(t *testing.T) {
-	testutil.SkipIfNoAPIKey(t, "all")
+	// Keys and per-provider models come from the gitignored .env.e2e at the
+	// repo root; variables already exported in the shell keep precedence.
+	// XAI_MODEL and GEMINI_MODEL are independent, so grok and gemini can be
+	// exercised in a single run.
+	testutil.LoadEnvFile(t, filepath.Join("..", "..", ".env.e2e"))
 
-	modelName := os.Getenv("MODEL")
-	if modelName == "" {
-		t.Skip("Skipping live loop: MODEL is not set")
-	}
-	provName, err := config.ResolveProvider(modelName, os.Getenv("XAI_API_KEY"), os.Getenv("GEMINI_API_KEY"))
-	if err != nil {
-		t.Skipf("Skipping live loop: provider resolution failed: %v", err)
+	targets := []struct {
+		modelEnv string
+		keyEnv   string
+		newProv  func(modelName, apiKey string) ai.Provider
+	}{
+		{"XAI_MODEL", "XAI_API_KEY", func(m, k string) ai.Provider { return grok.NewProvider(k, ai.WithModel(m)) }},
+		{"GEMINI_MODEL", "GEMINI_API_KEY", func(m, k string) ai.Provider { return gemini.NewProvider(k, ai.WithModel(m)) }},
 	}
 
-	var prov ai.Provider
-	switch provName {
-	case "grok":
-		prov = grok.NewProvider(os.Getenv("XAI_API_KEY"), ai.WithModel(modelName))
-	case "gemini":
-		prov = gemini.NewProvider(os.Getenv("GEMINI_API_KEY"), ai.WithModel(modelName))
-	default:
-		t.Skipf("Skipping live loop: unknown provider %q", provName)
+	configured := false
+	for _, target := range targets {
+		modelName := strings.TrimSpace(os.Getenv(target.modelEnv))
+		if modelName == "" {
+			continue
+		}
+		configured = true
+		t.Run(modelName, func(t *testing.T) {
+			t.Parallel()
+
+			apiKey := os.Getenv(target.keyEnv)
+			if apiKey == "" {
+				t.Skipf("Skipping live loop: %s is set but %s is missing", target.modelEnv, target.keyEnv)
+			}
+			runLiveBusinessLoop(t, target.newProv(modelName, apiKey))
+		})
 	}
+	if !configured {
+		t.Skip("Skipping live loop: neither XAI_MODEL nor GEMINI_MODEL is set")
+	}
+}
+
+// runLiveBusinessLoop drives the real provider through the full business
+// closed loop: deterministic offline plan, LLM movie plan, execute, archive.
+func runLiveBusinessLoop(t *testing.T, prov ai.Provider) {
+	t.Helper()
 
 	s := newSandbox(t, prov)
 
