@@ -32,16 +32,18 @@ ARG GID
 
 # Install ca-certificates for HTTPS/TLS requests and set up runtime user
 RUN apk add --no-cache ca-certificates \
-    && addgroup -g ${GID} organizer \
-    && adduser -u ${UID} -G organizer -D -H -s /sbin/nologin organizer \
+    && (getent group ${GID} | cut -d: -f1 || addgroup -g ${GID} organizer) > /tmp/groupname \
+    && GROUP_NAME=$(cat /tmp/groupname) \
+    && (getent passwd ${UID} | cut -d: -f1 || (adduser -u ${UID} -G "${GROUP_NAME}" -D -H -s /sbin/nologin organizer && echo organizer)) > /tmp/username \
+    && rm -f /tmp/groupname /tmp/username \
     && mkdir -p /mnt \
-    && chown -R organizer:organizer /mnt
+    && chown -R ${UID}:${GID} /mnt
 
 COPY --from=builder /out/organizer /usr/local/bin/organizer
 
 # DOWNLOAD_COMPLETED_DIR / TARGET_DIR and the rest of the configuration are
 # expected to be provided via environment variables (docker run -e ...).
-USER organizer
+USER ${UID}:${GID}
 
 EXPOSE 8000
 
