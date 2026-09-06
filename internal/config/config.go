@@ -16,7 +16,10 @@ type Config struct {
 	TargetDir            string
 	JavActorFile         string
 	FlareSolverrURL      string
-	MetadataMCP          string
+	TMDBAPIKey           string
+	TMDBLanguage         string
+	MetaTubeAPIURL       string
+	MetaTubeAPIKey       string
 	Model                string
 	XaiAPIKey            string
 	GeminiAPIKey         string
@@ -25,12 +28,19 @@ type Config struct {
 
 // LoadConfig reads configuration from environment variables.
 func LoadConfig() *Config {
+	tmdbLanguage := os.Getenv("TMDB_RESPONSE_LANGUAGE")
+	if tmdbLanguage == "" {
+		tmdbLanguage = "zh-CN"
+	}
 	return &Config{
 		DownloadCompletedDir: os.Getenv("DOWNLOAD_COMPLETED_DIR"),
 		TargetDir:            os.Getenv("TARGET_DIR"),
 		JavActorFile:         os.Getenv("JAV_ACTOR_FILE"),
 		FlareSolverrURL:      os.Getenv("FLARESOLVERR_URL"),
-		MetadataMCP:          os.Getenv("METADATA_MCP"),
+		TMDBAPIKey:           os.Getenv("TMDB_API_KEY"),
+		TMDBLanguage:         tmdbLanguage,
+		MetaTubeAPIURL:       os.Getenv("METATUBE_API_URL"),
+		MetaTubeAPIKey:       os.Getenv("METATUBE_API_KEY"),
 		Model:                os.Getenv("MODEL"),
 		XaiAPIKey:            os.Getenv("XAI_API_KEY"),
 		GeminiAPIKey:         os.Getenv("GEMINI_API_KEY"),
@@ -56,8 +66,11 @@ func StartupCheck(cfg *Config) error {
 	if cfg.FlareSolverrURL == "" {
 		return fmt.Errorf("FLARESOLVERR_URL environment variable is not set or is empty")
 	}
-	if cfg.MetadataMCP == "" {
-		return fmt.Errorf("METADATA_MCP environment variable is not set or is empty")
+	if cfg.TMDBAPIKey == "" {
+		return fmt.Errorf("TMDB_API_KEY environment variable is not set or is empty")
+	}
+	if cfg.MetaTubeAPIURL == "" {
+		return fmt.Errorf("METATUBE_API_URL environment variable is not set or is empty")
 	}
 	if cfg.Model == "" {
 		return fmt.Errorf("MODEL environment variable is not set or is empty")

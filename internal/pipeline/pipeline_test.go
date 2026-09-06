@@ -17,7 +17,7 @@ import (
 
 func newTestPipeline(t *testing.T, prov *mock.Provider, dir string) *Pipeline {
 	t.Helper()
-	return NewPipeline(prov, stage2enricher.NewEnricher(nil, nil, nil), dir)
+	return NewPipeline(prov, stage2enricher.NewEnricher(nil, nil, nil, nil), dir)
 }
 
 func TestCreatePlan_TVSeriesFullFlow(t *testing.T) {

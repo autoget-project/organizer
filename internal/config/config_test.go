@@ -21,6 +21,25 @@ func TestStartupCheckMissingEnv(t *testing.T) {
 	require.Error(t, StartupCheck(cfg), "missing TARGET_DIR must fail startup check")
 }
 
+func TestLoadConfigDefaults(t *testing.T) {
+	// Not parallel: mutates the process environment via t.Setenv.
+	t.Setenv("DOWNLOAD_COMPLETED_DIR", "/downloads")
+	t.Setenv("TARGET_DIR", "/target")
+	t.Setenv("TMDB_API_KEY", "tmdb-key")
+	t.Setenv("METATUBE_API_URL", "http://metatube:8080")
+	t.Setenv("METATUBE_API_KEY", "metatube-key")
+
+	cfg := LoadConfig()
+
+	assert.Equal(t, "/downloads", cfg.DownloadCompletedDir)
+	assert.Equal(t, "tmdb-key", cfg.TMDBAPIKey)
+	assert.Equal(t, "http://metatube:8080", cfg.MetaTubeAPIURL)
+	assert.Equal(t, "metatube-key", cfg.MetaTubeAPIKey)
+
+	// TMDB_RESPONSE_LANGUAGE unset must default to Simplified Chinese.
+	assert.Equal(t, "zh-CN", cfg.TMDBLanguage)
+}
+
 func TestResolveProvider(t *testing.T) {
 	t.Parallel()
 
@@ -132,7 +151,8 @@ func TestStartupCheckDirectories(t *testing.T) {
 		TargetDir:            targetDir,
 		JavActorFile:         filepath.Join(tempDir, "actor.json"),
 		FlareSolverrURL:      "http://localhost:8191",
-		MetadataMCP:          "http://localhost:8000/sse",
+		TMDBAPIKey:           "tmdb-key",
+		MetaTubeAPIURL:       "http://localhost:9000",
 		Model:                "xai:grok-2",
 		XaiAPIKey:            "valid-key",
 	}

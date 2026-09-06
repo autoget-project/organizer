@@ -2,7 +2,6 @@ package stage2enricher
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"path/filepath"
 	"testing"
@@ -10,68 +9,65 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"organizer/internal/metadata"
 	"organizer/internal/model"
 )
 
-type mockMCPClient struct {
-	findByIMDbIDFunc       func(ctx context.Context, imdbID string) (map[string]interface{}, error)
-	searchMoviesFunc       func(ctx context.Context, title string) (map[string]interface{}, error)
-	searchTVShowsFunc      func(ctx context.Context, title string) (map[string]interface{}, error)
-	searchJapanesePornFunc func(ctx context.Context, javID string) (map[string]interface{}, error)
+type mockTMDBSource struct {
+	findByIMDbIDFunc  func(ctx context.Context, imdbID string) (metadata.FindResult, error)
+	searchMoviesFunc  func(ctx context.Context, title string) ([]metadata.Movie, error)
+	searchTVShowsFunc func(ctx context.Context, title string) ([]metadata.TVShow, error)
 }
 
-func (m *mockMCPClient) CallTool(ctx context.Context, name string, arguments interface{}) (json.RawMessage, error) {
-	return nil, nil
-}
-func (m *mockMCPClient) FindByIMDbID(ctx context.Context, imdbID string) (map[string]interface{}, error) {
+func (m *mockTMDBSource) FindByIMDbID(ctx context.Context, imdbID string) (metadata.FindResult, error) {
 	if m.findByIMDbIDFunc != nil {
 		return m.findByIMDbIDFunc(ctx, imdbID)
 	}
-	return nil, nil
+	return metadata.FindResult{}, nil
 }
-func (m *mockMCPClient) SearchMovies(ctx context.Context, title string) (map[string]interface{}, error) {
+func (m *mockTMDBSource) SearchMovies(ctx context.Context, title string) ([]metadata.Movie, error) {
 	if m.searchMoviesFunc != nil {
 		return m.searchMoviesFunc(ctx, title)
 	}
 	return nil, nil
 }
-func (m *mockMCPClient) SearchTVShows(ctx context.Context, title string) (map[string]interface{}, error) {
+func (m *mockTMDBSource) SearchTVShows(ctx context.Context, title string) ([]metadata.TVShow, error) {
 	if m.searchTVShowsFunc != nil {
 		return m.searchTVShowsFunc(ctx, title)
 	}
 	return nil, nil
 }
-func (m *mockMCPClient) SearchJapanesePorn(ctx context.Context, javID string) (map[string]interface{}, error) {
-	if m.searchJapanesePornFunc != nil {
-		return m.searchJapanesePornFunc(ctx, javID)
-	}
-	return nil, nil
+
+type mockJAVSource struct {
+	searchJapanesePornFunc func(ctx context.Context, bango string) ([]metadata.JAV, error)
 }
-func (m *mockMCPClient) WebSearch(ctx context.Context, query string) (map[string]interface{}, error) {
+
+func (m *mockJAVSource) SearchJapanesePorn(ctx context.Context, bango string) ([]metadata.JAV, error) {
+	if m.searchJapanesePornFunc != nil {
+		return m.searchJapanesePornFunc(ctx, bango)
+	}
 	return nil, nil
 }
 
 func TestEnricher_MovieSuccessAndAnimation(t *testing.T) {
 	t.Parallel()
 
-	mcpMock := &mockMCPClient{
-		findByIMDbIDFunc: func(ctx context.Context, imdbID string) (map[string]interface{}, error) {
-			return map[string]interface{}{
-				"movie_results": []interface{}{
-					map[string]interface{}{
-						"title":             "Spirited Away",
-						"release_date":      "2001-07-20",
-						"original_language": "ja",
-						"genres": []interface{}{
-							map[string]interface{}{"name": "Animation"},
-						},
+	tmdbMock := &mockTMDBSource{
+		findByIMDbIDFunc: func(ctx context.Context, imdbID string) (metadata.FindResult, error) {
+			return metadata.FindResult{
+				Movies: []metadata.Movie{
+					{
+						Title:            "Spirited Away",
+						ReleaseDate:      "2001-07-20",
+						OriginalLanguage: "ja",
+						GenreIDs:         []int{16},
 					},
 				},
 			}, nil
 		},
 	}
 
-	enricher := NewEnricher(mcpMock, nil, nil)
+	enricher := NewEnricher(tmdbMock, nil, nil, nil)
 
 	res, err := enricher.Enrich(context.Background(), model.CategoryMovie,
 		[]string{"Spirited.Away.2001.mkv"}, map[string]interface{}{"imdb_id": "tt0245429"}, nil)
@@ -86,22 +82,24 @@ func TestEnricher_MovieSuccessAndAnimation(t *testing.T) {
 func TestEnricher_DegradationProtection_M6(t *testing.T) {
 	t.Parallel()
 
-	// M6: when MCP fails or returns nothing, the enricher must degrade to
-	// filename-derived metadata instead of surfacing a fatal error.
-	mcpMock := &mockMCPClient{
-		findByIMDbIDFunc: func(ctx context.Context, imdbID string) (map[string]interface{}, error) {
-			return nil, errors.New("network connection refused")
+	// M6: when metadata sources fail or return nothing, the enricher must
+	// degrade to filename-derived metadata instead of surfacing a fatal error.
+	tmdbMock := &mockTMDBSource{
+		findByIMDbIDFunc: func(ctx context.Context, imdbID string) (metadata.FindResult, error) {
+			return metadata.FindResult{}, errors.New("network connection refused")
 		},
-		searchMoviesFunc: func(ctx context.Context, title string) (map[string]interface{}, error) {
+		searchMoviesFunc: func(ctx context.Context, title string) ([]metadata.Movie, error) {
 			return nil, errors.New("search error")
 		},
-		searchJapanesePornFunc: func(ctx context.Context, javID string) (map[string]interface{}, error) {
+	}
+	javMock := &mockJAVSource{
+		searchJapanesePornFunc: func(ctx context.Context, bango string) ([]metadata.JAV, error) {
 			return nil, errors.New("remote timeout")
 		},
 	}
 
 	store := NewActorStore(filepath.Join(t.TempDir(), "actor.json"), "", nil)
-	enricher := NewEnricher(mcpMock, store, nil)
+	enricher := NewEnricher(tmdbMock, javMock, store, nil)
 	ctx := context.Background()
 
 	// Movie falls back to the filename.
@@ -120,7 +118,7 @@ func TestEnricher_DegradationProtection_M6(t *testing.T) {
 func TestEnricher_BangoVRAndMadou(t *testing.T) {
 	t.Parallel()
 
-	enricher := NewEnricher(nil, nil, nil)
+	enricher := NewEnricher(nil, nil, nil, nil)
 	ctx := context.Background()
 
 	// Madou label detection.
@@ -154,24 +152,24 @@ func TestEnricher_BangoVRAndMadou(t *testing.T) {
 func TestEnricher_BangoDmmKeyFallsBackToFilenameBango(t *testing.T) {
 	t.Parallel()
 
-	// Spec M6: the dmm_id is only a search key; when search_japanese_porn
-	// fails or returns nothing, the final bango must fall back to the
-	// filename-derived canonical hyphenated bango.
+	// Spec M6: the dmm_id is only a search key; when the JAV search fails or
+	// returns nothing, the final bango must fall back to the filename-derived
+	// canonical hyphenated bango.
 	tests := []struct {
 		name     string
-		mockFunc func(ctx context.Context, javID string) (map[string]interface{}, error)
+		mockFunc func(ctx context.Context, bango string) ([]metadata.JAV, error)
 	}{
 		{
-			name: "mcp error",
-			mockFunc: func(ctx context.Context, javID string) (map[string]interface{}, error) {
-				assert.Equal(t, "PRED00374", javID, "dmm-derived search key")
+			name: "metatube error",
+			mockFunc: func(ctx context.Context, bango string) ([]metadata.JAV, error) {
+				assert.Equal(t, "PRED00374", bango, "dmm-derived search key")
 				return nil, errors.New("remote timeout")
 			},
 		},
 		{
 			name: "empty result",
-			mockFunc: func(ctx context.Context, javID string) (map[string]interface{}, error) {
-				assert.Equal(t, "PRED00374", javID, "dmm-derived search key")
+			mockFunc: func(ctx context.Context, bango string) ([]metadata.JAV, error) {
+				assert.Equal(t, "PRED00374", bango, "dmm-derived search key")
 				return nil, nil
 			},
 		},
@@ -181,7 +179,7 @@ func TestEnricher_BangoDmmKeyFallsBackToFilenameBango(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			enricher := NewEnricher(&mockMCPClient{searchJapanesePornFunc: tt.mockFunc}, nil, nil)
+			enricher := NewEnricher(nil, &mockJAVSource{searchJapanesePornFunc: tt.mockFunc}, nil, nil)
 
 			res, err := enricher.Enrich(
 				context.Background(),
@@ -194,4 +192,68 @@ func TestEnricher_BangoDmmKeyFallsBackToFilenameBango(t *testing.T) {
 			assert.Equal(t, "PRED-374", res.Bango)
 		})
 	}
+}
+
+func TestEnricher_BangoEnrichedFromMetatube(t *testing.T) {
+	t.Parallel()
+
+	javMock := &mockJAVSource{
+		searchJapanesePornFunc: func(ctx context.Context, bango string) ([]metadata.JAV, error) {
+			return []metadata.JAV{
+				{
+					Number:   "SSIS-698",
+					Title:    "SSIS-698 作品",
+					Provider: "AVBASE",
+					Actors:   []string{" 吉根ゆりあ ", "", "八掛うみ"},
+					Maker:    "S1 NO.1 STYLE",
+				},
+			}, nil
+		},
+	}
+
+	enricher := NewEnricher(nil, javMock, nil, nil)
+
+	res, err := enricher.Enrich(
+		context.Background(),
+		model.CategoryBangoPorn,
+		[]string{"SSIS-698.mp4"},
+		nil,
+		nil,
+	)
+	require.NoError(t, err)
+
+	assert.Equal(t, "SSIS-698", res.Bango)
+	assert.Equal(t, "SSIS-698 作品", res.Title)
+	assert.Equal(t, "S1 NO.1 STYLE", res.Maker)
+	assert.Equal(t, []string{"吉根ゆりあ", "八掛うみ"}, res.Actors)
+}
+
+func TestEnricher_MovieTitleSearchFallback(t *testing.T) {
+	t.Parallel()
+
+	// No IMDb id: the enricher must go straight to the title search.
+	tmdbMock := &mockTMDBSource{
+		searchMoviesFunc: func(ctx context.Context, title string) ([]metadata.Movie, error) {
+			assert.Equal(t, "Inception", title)
+			return []metadata.Movie{
+				{Title: "盗梦空间", OriginalTitle: "Inception", ReleaseDate: "2010-07-16", OriginalLanguage: "en"},
+			}, nil
+		},
+	}
+
+	enricher := NewEnricher(tmdbMock, nil, nil, nil)
+
+	res, err := enricher.Enrich(
+		context.Background(),
+		model.CategoryMovie,
+		[]string{"Inception.2010.mkv"},
+		map[string]interface{}{"title": "Inception"},
+		nil,
+	)
+	require.NoError(t, err)
+
+	assert.Equal(t, "盗梦空间", res.Title)
+	assert.Equal(t, "Inception", res.OriginalTitle)
+	assert.Equal(t, 2010, res.Year)
+	assert.Equal(t, model.LanguageEnglish, res.Language)
 }

@@ -44,7 +44,7 @@ AutoGet Organizer 是自动化媒体处理链路中的后处理核心服务，�
                          ▼ (确定 Category 与初筛实体)           │
 ┌────────────────────────────────────────────────────────┐    │ (对于 book/music 等
 │ 阶段二：定向元数据检索与增强 (Stage 2: Metadata Enricher) │    │  简易类型跳过 LLM 规划)
-│  ├─ 依据类别与实体，定向调用外部数据源 (TMDB/JAVDB/MCP) │    │
+│  ├─ 依据类别与实体，定向调用本地元数据客户端 (TMDB/Metatube) │    │
 │  └─ JAV 女优别名库持久化比对 (actor.json + 进程文件锁)  │    │
 └────────────────────────────────────────────────────────┘    │
                          │                                    │
@@ -211,7 +211,7 @@ organizer/
 │   │       └── security.go         # 纯代码物理路径防穿越检查
 │   ├── service/
 │   │   └── executor.go             # 文件物理原子移动与归档 (POST /v1/execute)
-│   ├── mcp/                        # MCP 客户端 (与外部元数据服务通信)
+│   ├── metadata/                   # 本地元数据客户端 (TMDB / Metatube 直接 API 调用)
 │   │   └── client.go
 │   └── handler/                    # REST 路由 (完全兼容现有协议)
 │       ├── plan_handler.go         # POST /v1/plan

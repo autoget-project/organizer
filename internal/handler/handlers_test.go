@@ -38,7 +38,7 @@ func newTestEnv(t *testing.T, prov *mock.Provider) *env {
 	downloadDir := t.TempDir()
 	targetDir := t.TempDir()
 
-	pipe := pipeline.NewPipeline(prov, stage2enricher.NewEnricher(nil, nil, nil), downloadDir)
+	pipe := pipeline.NewPipeline(prov, stage2enricher.NewEnricher(nil, nil, nil, nil), downloadDir)
 	exec := service.NewExecutor(downloadDir, targetDir)
 
 	mux := http.NewServeMux()

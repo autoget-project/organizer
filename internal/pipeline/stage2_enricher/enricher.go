@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"organizer/internal/ai"
-	"organizer/internal/mcp"
+	"organizer/internal/metadata"
 	"organizer/internal/model"
 )
 
@@ -32,17 +32,34 @@ func isMadouBango(bango string) bool {
 	return ok
 }
 
+// TMDBSource is the movie/TV metadata source consumed by Stage 2
+// (implemented by metadata.TMDBClient).
+type TMDBSource interface {
+	SearchMovies(ctx context.Context, title string) ([]metadata.Movie, error)
+	SearchTVShows(ctx context.Context, title string) ([]metadata.TVShow, error)
+	FindByIMDbID(ctx context.Context, imdbID string) (metadata.FindResult, error)
+}
+
+// JAVSource is the JAV metadata source consumed by Stage 2
+// (implemented by metadata.MetatubeClient).
+type JAVSource interface {
+	SearchJapanesePorn(ctx context.Context, bango string) ([]metadata.JAV, error)
+}
+
 // Enricher orchestrates Stage 2 metadata retrieval and degradation protection (M6).
 type Enricher struct {
-	mcpClient  mcp.Client
+	tmdb       TMDBSource
+	jav        JAVSource
 	actorStore *ActorStore
 	aiProvider ai.Provider
 }
 
-// NewEnricher creates a new Enricher instance.
-func NewEnricher(mcpClient mcp.Client, actorStore *ActorStore, aiProvider ai.Provider) *Enricher {
+// NewEnricher creates a new Enricher instance. tmdb and jav may be nil, in
+// which case the corresponding lookups degrade to local filename metadata.
+func NewEnricher(tmdb TMDBSource, jav JAVSource, actorStore *ActorStore, aiProvider ai.Provider) *Enricher {
 	return &Enricher{
-		mcpClient:  mcpClient,
+		tmdb:       tmdb,
+		jav:        jav,
 		actorStore: actorStore,
 		aiProvider: aiProvider,
 	}
@@ -76,32 +93,28 @@ func (e *Enricher) enrichMovie(ctx context.Context, files []string, metadata map
 
 	// Step 1: Try find_by_imdb_id if imdbID is present
 	var movieFound bool
-	if imdbID != "" && e.mcpClient != nil {
-		res, err := e.mcpClient.FindByIMDbID(ctx, imdbID)
-		if err == nil && res != nil {
-			if movieResults, ok := res["movie_results"].([]interface{}); ok && len(movieResults) > 0 {
-				if m, ok := movieResults[0].(map[string]interface{}); ok {
-					movieFound = true
-					e.populateMovieFromMap(&enriched, m)
-				}
+	if imdbID != "" && e.tmdb != nil {
+		res, err := e.tmdb.FindByIMDbID(ctx, imdbID)
+		if err == nil {
+			if len(res.Movies) > 0 {
+				movieFound = true
+				e.populateMovieFromTMDB(&enriched, res.Movies[0])
 			}
 		} else {
-			log.Printf("[M6 degrade] find_by_imdb_id failed for movie (%s): %v, falling back to title search", imdbID, err)
+			log.Printf("[M6 degrade] tmdb find_by_imdb_id failed for movie (%s): %v, falling back to title search", imdbID, err)
 		}
 	}
 
 	// Step 2: Fallback to search_movies by title
-	if !movieFound && titleCandidate != "" && e.mcpClient != nil {
-		res, err := e.mcpClient.SearchMovies(ctx, titleCandidate)
-		if err == nil && res != nil {
-			if results, ok := res["results"].([]interface{}); ok && len(results) > 0 {
-				if m, ok := results[0].(map[string]interface{}); ok {
-					movieFound = true
-					e.populateMovieFromMap(&enriched, m)
-				}
+	if !movieFound && titleCandidate != "" && e.tmdb != nil {
+		movies, err := e.tmdb.SearchMovies(ctx, titleCandidate)
+		if err == nil {
+			if len(movies) > 0 {
+				movieFound = true
+				e.populateMovieFromTMDB(&enriched, movies[0])
 			}
 		} else {
-			log.Printf("[M6 degrade] search_movies failed for (%s): %v", titleCandidate, err)
+			log.Printf("[M6 degrade] tmdb search_movies failed for (%s): %v", titleCandidate, err)
 		}
 	}
 
@@ -131,32 +144,28 @@ func (e *Enricher) enrichTVSeries(ctx context.Context, files []string, metadata 
 	titleCandidate := getTitleCandidate(files, metadata, entities)
 
 	var tvFound bool
-	if imdbID != "" && e.mcpClient != nil {
-		res, err := e.mcpClient.FindByIMDbID(ctx, imdbID)
-		if err == nil && res != nil {
-			if tvResults, ok := res["tv_results"].([]interface{}); ok && len(tvResults) > 0 {
-				if t, ok := tvResults[0].(map[string]interface{}); ok {
-					tvFound = true
-					e.populateTVFromMap(&enriched, t)
-				}
+	if imdbID != "" && e.tmdb != nil {
+		res, err := e.tmdb.FindByIMDbID(ctx, imdbID)
+		if err == nil {
+			if len(res.TVs) > 0 {
+				tvFound = true
+				e.populateTVFromTMDB(&enriched, res.TVs[0])
 			}
 		} else {
-			log.Printf("[M6 degrade] find_by_imdb_id failed for tv_series (%s): %v, falling back to title search", imdbID, err)
+			log.Printf("[M6 degrade] tmdb find_by_imdb_id failed for tv_series (%s): %v, falling back to title search", imdbID, err)
 		}
 	}
 
 	// Fallback to search_tv_shows
-	if !tvFound && titleCandidate != "" && e.mcpClient != nil {
-		res, err := e.mcpClient.SearchTVShows(ctx, titleCandidate)
-		if err == nil && res != nil {
-			if results, ok := res["results"].([]interface{}); ok && len(results) > 0 {
-				if t, ok := results[0].(map[string]interface{}); ok {
-					tvFound = true
-					e.populateTVFromMap(&enriched, t)
-				}
+	if !tvFound && titleCandidate != "" && e.tmdb != nil {
+		tvs, err := e.tmdb.SearchTVShows(ctx, titleCandidate)
+		if err == nil {
+			if len(tvs) > 0 {
+				tvFound = true
+				e.populateTVFromTMDB(&enriched, tvs[0])
 			}
 		} else {
-			log.Printf("[M6 degrade] search_tv_shows failed for (%s): %v", titleCandidate, err)
+			log.Printf("[M6 degrade] tmdb search_tv_shows failed for (%s): %v", titleCandidate, err)
 		}
 	}
 
@@ -180,34 +189,28 @@ func (e *Enricher) enrichBangoPorn(ctx context.Context, files []string, metadata
 	var enriched model.EnrichedMetadata
 	enriched.Language = model.LanguageJapanese
 
-	// The dmm-derived candidate only serves as the MCP search key; per spec M6
+	// The dmm-derived candidate only serves as the JAV search key; per spec M6
 	// the final bango must be the canonical hyphenated form derived from the
 	// filename whenever the search fails or returns nothing.
 	searchKey := getBangoCandidate(files, metadata, entities)
 	bangoCandidate := searchKey
 
-	// Search JAV info via search_japanese_porn
-	if searchKey != "" && e.mcpClient != nil {
-		res, err := e.mcpClient.SearchJapanesePorn(ctx, searchKey)
-		if err == nil && res != nil {
-			if actresses, ok := res["actresses"].([]interface{}); ok {
-				for _, a := range actresses {
-					if actStr, ok := a.(string); ok && strings.TrimSpace(actStr) != "" {
-						enriched.Actors = append(enriched.Actors, strings.TrimSpace(actStr))
+	// Search JAV info via the local Metatube client
+	if searchKey != "" && e.jav != nil {
+		javs, err := e.jav.SearchJapanesePorn(ctx, searchKey)
+		if err == nil {
+			if len(javs) > 0 {
+				jav := javs[0]
+				for _, a := range jav.Actors {
+					if actStr := strings.TrimSpace(a); actStr != "" {
+						enriched.Actors = append(enriched.Actors, actStr)
 					}
 				}
-			}
-			if maker, ok := res["maker"].(string); ok {
-				enriched.Maker = maker
-			}
-			if isVR, ok := res["is_vr"].(bool); ok && isVR {
-				enriched.IsVR = true
-			}
-			if title, ok := res["title"].(string); ok {
-				enriched.Title = title
+				enriched.Maker = jav.Maker
+				enriched.Title = jav.Title
 			}
 		} else {
-			log.Printf("[M6 degrade] search_japanese_porn failed for (%s): %v", searchKey, err)
+			log.Printf("[M6 degrade] metatube search_japanese_porn failed for (%s): %v", searchKey, err)
 		}
 	}
 
@@ -316,54 +319,39 @@ func toStringSlice(v interface{}) []string {
 	return nil
 }
 
-// populateFromMediaMap fills EnrichedMetadata from a TMDB-style movie/TV map.
-// titleKeys/dateKeys carry the movie ("title"/"release_date") vs TV
-// ("name"/"first_air_date") key spellings.
-func (e *Enricher) populateFromMediaMap(enriched *model.EnrichedMetadata, m map[string]interface{}, titleKeys, dateKeys [2]string) {
-	for _, tk := range titleKeys {
-		if title, ok := m[tk].(string); ok && title != "" {
-			enriched.Title = title
-			break
-		}
-	}
-	if origTitle, ok := m["original_title"].(string); ok && origTitle != "" {
-		enriched.OriginalTitle = origTitle
-	} else if origName, ok := m["original_name"].(string); ok && origName != "" {
-		enriched.OriginalTitle = origName
-	}
-	for _, dk := range dateKeys {
-		if date, ok := m[dk].(string); ok && len(date) >= 4 {
-			if y, err := strconv.Atoi(date[:4]); err == nil {
-				enriched.Year = y
-			}
-			break
-		}
-	}
-	if lang, ok := m["original_language"].(string); ok && lang != "" {
-		enriched.Language = model.ISO639ToLanguage(lang)
-	}
-	if genres, ok := m["genres"].([]interface{}); ok {
-		for _, g := range genres {
-			var gName string
-			switch gv := g.(type) {
-			case map[string]interface{}:
-				gName, _ = gv["name"].(string)
-			case string:
-				gName = gv
-			}
-			if strings.Contains(strings.ToLower(gName), "anim") {
-				enriched.IsAnim = true
-			}
+// applyYearFromDate parses the leading year from a TMDB date field.
+func applyYearFromDate(enriched *model.EnrichedMetadata, date string) {
+	if len(date) >= 4 {
+		if y, err := strconv.Atoi(date[:4]); err == nil {
+			enriched.Year = y
 		}
 	}
 }
 
-func (e *Enricher) populateMovieFromMap(enriched *model.EnrichedMetadata, m map[string]interface{}) {
-	e.populateFromMediaMap(enriched, m, [2]string{"title", "name"}, [2]string{"release_date", "first_air_date"})
+// populateMovieFromTMDB fills EnrichedMetadata from a TMDB movie result.
+func (e *Enricher) populateMovieFromTMDB(enriched *model.EnrichedMetadata, m metadata.Movie) {
+	if m.Title != "" {
+		enriched.Title = m.Title
+	}
+	enriched.OriginalTitle = m.OriginalTitle
+	applyYearFromDate(enriched, m.ReleaseDate)
+	if m.OriginalLanguage != "" {
+		enriched.Language = model.ISO639ToLanguage(m.OriginalLanguage)
+	}
+	enriched.IsAnim = m.IsAnimation()
 }
 
-func (e *Enricher) populateTVFromMap(enriched *model.EnrichedMetadata, t map[string]interface{}) {
-	e.populateFromMediaMap(enriched, t, [2]string{"name", "title"}, [2]string{"first_air_date", "release_date"})
+// populateTVFromTMDB fills EnrichedMetadata from a TMDB TV result.
+func (e *Enricher) populateTVFromTMDB(enriched *model.EnrichedMetadata, t metadata.TVShow) {
+	if t.Name != "" {
+		enriched.Title = t.Name
+	}
+	enriched.OriginalTitle = t.OriginalName
+	applyYearFromDate(enriched, t.FirstAirDate)
+	if t.OriginalLanguage != "" {
+		enriched.Language = model.ISO639ToLanguage(t.OriginalLanguage)
+	}
+	enriched.IsAnim = t.IsAnimation()
 }
 
 func getIMDbID(metadata map[string]interface{}, entities map[string]interface{}) string {

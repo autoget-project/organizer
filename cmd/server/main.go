@@ -19,7 +19,7 @@ import (
 	"organizer/internal/ai/grok"
 	"organizer/internal/config"
 	"organizer/internal/handler"
-	"organizer/internal/mcp"
+	"organizer/internal/metadata"
 	"organizer/internal/pipeline"
 	"organizer/internal/pipeline/stage2_enricher"
 	"organizer/internal/service"
@@ -38,9 +38,10 @@ func main() {
 		log.Fatalf("provider resolution failed: %v", err)
 	}
 
-	mcpClient := mcp.NewClient(cfg.MetadataMCP)
+	tmdbClient := metadata.NewTMDB(cfg.TMDBAPIKey, cfg.TMDBLanguage)
+	metatubeClient := metadata.NewMetatube(cfg.MetaTubeAPIURL, cfg.MetaTubeAPIKey)
 	actorStore := stage2enricher.NewActorStore(cfg.JavActorFile, cfg.FlareSolverrURL, provider)
-	enricher := stage2enricher.NewEnricher(mcpClient, actorStore, provider)
+	enricher := stage2enricher.NewEnricher(tmdbClient, metatubeClient, actorStore, provider)
 	pipe := pipeline.NewPipeline(provider, enricher, cfg.DownloadCompletedDir)
 	exec := service.NewExecutor(cfg.DownloadCompletedDir, cfg.TargetDir)
 

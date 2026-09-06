@@ -61,9 +61,9 @@ func newSandbox(t *testing.T, prov ai.Provider) *sandbox {
 			"pre-create target subdirectory %s", d)
 	}
 
-	// Stage 2 runs with a nil MCP client: enrichment degrades gracefully (M6)
-	// exactly like the offline production degradation path.
-	pipe := pipeline.NewPipeline(prov, stage2enricher.NewEnricher(nil, nil, nil), downloadDir)
+	// Stage 2 runs with nil metadata sources: enrichment degrades gracefully
+	// (M6) exactly like the offline production degradation path.
+	pipe := pipeline.NewPipeline(prov, stage2enricher.NewEnricher(nil, nil, nil, nil), downloadDir)
 	exec := service.NewExecutor(downloadDir, targetDir)
 
 	mux := http.NewServeMux()
