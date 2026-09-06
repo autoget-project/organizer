@@ -12,7 +12,7 @@ import (
 
 	"organizer/internal/ai/mock"
 	"organizer/internal/model"
-	"organizer/internal/pipeline/stage2_enricher"
+	stage2enricher "organizer/internal/pipeline/stage2_enricher"
 )
 
 func newTestPipeline(t *testing.T, prov *mock.Provider, dir string) *Pipeline {

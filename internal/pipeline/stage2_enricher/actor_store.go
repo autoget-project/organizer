@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"golang.org/x/sys/unix"
+
 	"organizer/internal/ai"
 )
 

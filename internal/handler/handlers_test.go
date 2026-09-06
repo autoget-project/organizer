@@ -18,7 +18,7 @@ import (
 	"organizer/internal/ai/mock"
 	"organizer/internal/model"
 	"organizer/internal/pipeline"
-	"organizer/internal/pipeline/stage2_enricher"
+	stage2enricher "organizer/internal/pipeline/stage2_enricher"
 	"organizer/internal/ptr"
 	"organizer/internal/service"
 )

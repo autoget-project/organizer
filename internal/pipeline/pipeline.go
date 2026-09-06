@@ -13,10 +13,10 @@ import (
 
 	"organizer/internal/ai"
 	"organizer/internal/model"
-	"organizer/internal/pipeline/stage1_classifier"
-	"organizer/internal/pipeline/stage2_enricher"
-	"organizer/internal/pipeline/stage3_planner"
-	"organizer/internal/pipeline/stage4_postprocess"
+	stage1classifier "organizer/internal/pipeline/stage1_classifier"
+	stage2enricher "organizer/internal/pipeline/stage2_enricher"
+	stage3planner "organizer/internal/pipeline/stage3_planner"
+	stage4postprocess "organizer/internal/pipeline/stage4_postprocess"
 )
 
 // Pipeline is the 4-stage planning orchestrator.

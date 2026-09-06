@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"golang.org/x/sys/unix"
+
 	"organizer/internal/model"
 )
 

@@ -21,7 +21,7 @@ import (
 	"organizer/internal/handler"
 	"organizer/internal/metadata"
 	"organizer/internal/pipeline"
-	"organizer/internal/pipeline/stage2_enricher"
+	stage2enricher "organizer/internal/pipeline/stage2_enricher"
 	"organizer/internal/service"
 )
 

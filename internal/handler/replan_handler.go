@@ -11,7 +11,7 @@ import (
 	"organizer/internal/ai"
 	"organizer/internal/model"
 	stage3planner "organizer/internal/pipeline/stage3_planner"
-	"organizer/internal/pipeline/stage4_postprocess"
+	stage4postprocess "organizer/internal/pipeline/stage4_postprocess"
 )
 
 // replanDomain identifies the Stage 3 domain an existing plan belongs to.
