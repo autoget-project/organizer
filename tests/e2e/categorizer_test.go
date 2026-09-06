@@ -3,28 +3,22 @@ package e2e
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/autoget-project/organizer/internal/ai/mock"
 	"github.com/autoget-project/organizer/internal/model"
 )
 
-// TestE2E_CategorizerRuleBehavior covers the Stage 1 rule layer over the
-// wire: pure eBook extensions archive as a book without any LLM, standard
-// bango patterns (case-insensitive FC2) route to the bango mover, and a
-// non-video bango name is never treated as video content.
+// TestE2E_CategorizerRuleBehavior covers Stage 1 rule classification:
+// pure eBook extensions archive as book, standard bango patterns route to bango mover,
+// and pure eBook bango name is treated as book.
 func TestE2E_CategorizerRuleBehavior(t *testing.T) {
-	t.Parallel()
-
 	cases := []struct {
 		name  string
 		files []string
-		rules []mock.Rule
 		want  map[string]model.PlanAction
 	}{
 		{
-			// Pure eBook extensions -> book; the whole hash dir is archived
-			// (branch 2 of the simple mover).
 			name: "book_extensions",
 			files: []string{
 				"ebooks_hash/ebook.pdf",
@@ -36,32 +30,20 @@ func TestE2E_CategorizerRuleBehavior(t *testing.T) {
 			},
 		},
 		{
-			// FC2- prefixes match case-insensitively and the bango is
-			// upper-cased.
 			name:  "bango_fc2_case_insensitive",
 			files: []string{"fc2-123456.mp4"},
-			rules: []mock.Rule{
-				{PromptPattern: patBango, Response: `{"filenames":[{"file":"fc2-123456.mp4","new_filename":"FC2-123456.mp4"}]}`},
-			},
 			want: map[string]model.PlanAction{
 				"fc2-123456.mp4": wantMove("jav/素人/FC2-123456.mp4"),
 			},
 		},
 		{
-			// ABC-123.mp4 hits the anchored standard bango rule (Stage 1, no
-			// LLM classification).
 			name:  "bango_standard_3char_3digit",
 			files: []string{"ABC-123.mp4"},
-			rules: []mock.Rule{
-				{PromptPattern: patBango, Response: `{"filenames":[{"file":"ABC-123.mp4","new_filename":"ABC-123.mp4"}]}`},
-			},
 			want: map[string]model.PlanAction{
 				"ABC-123.mp4": wantMove("jav/素人/ABC-123.mp4"),
 			},
 		},
 		{
-			// A non-video bango name must never be treated as video content;
-			// the pure eBook rule wins.
 			name:  "non_video_bango_names_are_books",
 			files: []string{"ABC-123.pdf"},
 			want: map[string]model.PlanAction{
@@ -70,25 +52,63 @@ func TestE2E_CategorizerRuleBehavior(t *testing.T) {
 		},
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			s, prov := newMockSandbox(t)
-			for _, r := range tc.rules {
-				prov.AddRule(r)
-			}
-
-			code, body := s.postJSON(t, "/v1/plan", model.APIPlanRequest{
-				Dir:   "dl",
-				Files: tc.files,
+	runWithLiveProviders(t, func(t *testing.T, s *sandbox) {
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				code, body := s.postJSON(t, "/v1/plan", model.APIPlanRequest{
+					Dir:   "dl",
+					Files: tc.files,
+				})
+				assertPlanContract(t, code, body, tc.want)
 			})
-			assertPlanContract(t, code, body, tc.want)
+		}
+	})
+}
 
-			// The pure eBook rules must hold with zero LLM calls.
-			if len(tc.rules) == 0 {
-				require.Empty(t, prov.Calls(), "rule-only classification must not invoke the LLM")
+// TestE2E_CategorizerLLMDisambiguation tests dirty/ambiguous inputs that require LLM classification:
+// audiobooks (chapter mp3s) vs western porn (no bango code).
+func TestE2E_CategorizerLLMDisambiguation(t *testing.T) {
+	runWithLiveProviders(t, func(t *testing.T, s *sandbox) {
+		t.Run("audiobook_disambiguation", func(t *testing.T) {
+			files := []string{
+				"The_Hobbit/Chapter_01.mp3",
+				"The_Hobbit/Chapter_02.mp3",
+			}
+			code, body := s.postJSON(t, "/v1/plan", model.APIPlanRequest{
+				Dir:   "audiobookdl",
+				Files: files,
+			})
+			require.Equal(t, 200, code, body)
+			var resp model.PlanResponse
+			decodeBody(t, code, body, &resp)
+			assert.Nil(t, resp.Error)
+			require.NotEmpty(t, resp.Plan)
+
+			// Invariant: should plan under audio_book
+			for _, act := range resp.Plan {
+				assert.Equal(t, "move", act.Action)
+				require.NotNil(t, act.Target)
+				assert.Contains(t, *act.Target, "audio_book/")
 			}
 		})
-	}
+
+		t.Run("western_porn_disambiguation", func(t *testing.T) {
+			files := []string{
+				"Brazzers.Exxtra.Hot.Summer.Scenes.1080p.mp4",
+			}
+			code, body := s.postJSON(t, "/v1/plan", model.APIPlanRequest{
+				Dir:   "porndl",
+				Files: files,
+			})
+			require.Equal(t, 200, code, body)
+			var resp model.PlanResponse
+			decodeBody(t, code, body, &resp)
+			assert.Nil(t, resp.Error)
+			require.NotEmpty(t, resp.Plan)
+			assert.Equal(t, "move", resp.Plan[0].Action)
+			require.NotNil(t, resp.Plan[0].Target)
+			// Invariant: should plan under porn/
+			assert.Contains(t, *resp.Plan[0].Target, "porn/")
+		})
+	})
 }

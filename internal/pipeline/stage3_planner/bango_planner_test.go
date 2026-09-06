@@ -64,7 +64,7 @@ func TestBangoPlanner_CPriorityOverMultiPart(t *testing.T) {
 
 	prov := mock.NewProvider()
 	prov.AddRule(mock.Rule{
-		PromptPattern: "bango porn videos",
+		PromptPattern: "bango (番号) identifiers",
 		Response: `{"filenames":[
 			{"file":"/downloads/SSIS-698-C.mp4","new_filename":"SSIS-698-C.mp4"},
 			{"file":"/downloads/SSIS-698-A.mp4","new_filename":"SSIS-698.part.1.mp4"},
@@ -108,7 +108,7 @@ func TestBangoPlanner_ActorDirectoryFromEnrichedMetadata(t *testing.T) {
 	// A single -C file whose actor directory was already resolved by Stage 2.
 	prov := mock.NewProvider()
 	prov.AddRule(mock.Rule{
-		PromptPattern: "bango porn videos",
+		PromptPattern: "bango (番号) identifiers",
 		Response:      `{"filenames":[{"file":"/downloads/SSIS-698-C.mp4","new_filename":"SSIS-698-C.mp4"}]}`,
 	})
 
@@ -132,7 +132,7 @@ func TestBangoPlanner_MadouAndNonVideoSkip(t *testing.T) {
 
 	prov := mock.NewProvider()
 	prov.AddRule(mock.Rule{
-		PromptPattern: "bango porn videos",
+		PromptPattern: "bango (番号) identifiers",
 		Response:      `{"filenames":[{"file":"/downloads/MD-0123.mp4","new_filename":"MD-0123.mp4"}]}`,
 	})
 

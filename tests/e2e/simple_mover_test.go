@@ -12,8 +12,6 @@ import (
 //  2. multiple files directly under the hash dir move as a whole directory;
 //  3. multiple files in sub dirs move per sub dir with the hash layer stripped.
 func TestE2E_SimpleMoverBranches(t *testing.T) {
-	t.Parallel()
-
 	cases := []struct {
 		name     string
 		files    []string
@@ -63,18 +61,16 @@ func TestE2E_SimpleMoverBranches(t *testing.T) {
 		},
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			s, _ := newMockSandbox(t)
-
-			code, body := s.postJSON(t, "/v1/plan", model.APIPlanRequest{
-				Dir:      "dl",
-				Files:    tc.files,
-				Metadata: tc.metadata,
+	runWithLiveProviders(t, func(t *testing.T, s *sandbox) {
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				code, body := s.postJSON(t, "/v1/plan", model.APIPlanRequest{
+					Dir:      "dl",
+					Files:    tc.files,
+					Metadata: tc.metadata,
+				})
+				assertPlanContract(t, code, body, tc.want)
 			})
-			assertPlanContract(t, code, body, tc.want)
-		})
-	}
+		}
+	})
 }

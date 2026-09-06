@@ -114,7 +114,8 @@ func (sp *SubtitlePlanner) PairSubtitles(ctx context.Context, dir string, subtit
 			continue
 		}
 		covered[item.File] = struct{}{}
-		if item.Action != "move" || item.MatchedVideo == "" {
+		isMoveAction := item.Action == "move" || item.Action == "rename_and_move"
+		if !isMoveAction || item.MatchedVideo == "" {
 			actions = append(actions, model.PlanAction{File: item.File, Action: "skip"})
 			continue
 		}
@@ -207,7 +208,8 @@ Specifics:
    - Match subtitle files to their corresponding video files by season/episode numbers or movie identity, using semantic matching - never rigid filename prefix slicing.
    - If the content shows an error or is empty, consider the file corrupted or unreadable.
 3. Output:
-   - For every subtitle file return "file", "action" and the "matched_video" (the exact original video path from the video movement plan).
+   - For every subtitle file return "file", "action" ("move" or "skip") and the "matched_video" (the exact original video path from the video movement plan).
+   - If the subtitle matches a planned video, set "action": "move".
    - Also return the detected "language" as one of: Chinese, English, Japanese, Korean, Others.
 4. Edge cases:
    - If no matching video file is found: "action": "skip".

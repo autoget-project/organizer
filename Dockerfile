@@ -5,8 +5,13 @@
 # Stage 2 ships the binary on a minimal Alpine runtime under a non-root user;
 # the resulting image stays well below 30MB.
 
+ARG GO_VERSION=1.27.1
+ARG ALPINE_VERSION=latest
+ARG UID=1000
+ARG GID=1000
+
 # ---- Build stage -----------------------------------------------------------
-FROM golang:1.27.1-alpine AS builder
+FROM golang:${GO_VERSION}-alpine AS builder
 
 WORKDIR /src
 
@@ -20,11 +25,14 @@ COPY internal ./internal
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/organizer ./cmd/server
 
 # ---- Runtime stage ---------------------------------------------------------
-FROM alpine:3.20
+FROM alpine:${ALPINE_VERSION}
+
+ARG UID
+ARG GID
 
 # Non-root user for runtime safety; no home dir needed by the service.
-RUN addgroup -g 1000 organizer \
-    && adduser -u 1000 -G organizer -D -H -s /sbin/nologin organizer \
+RUN addgroup -g ${GID} organizer \
+    && adduser -u ${UID} -G organizer -D -H -s /sbin/nologin organizer \
     && mkdir -p /mnt \
     && chown -R organizer:organizer /mnt
 

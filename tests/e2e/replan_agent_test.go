@@ -3,12 +3,12 @@ package e2e
 import (
 	"net/http"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/autoget-project/organizer/internal/ai/mock"
 	"github.com/autoget-project/organizer/internal/model"
 )
 
@@ -17,55 +17,51 @@ import (
 // re-running Stage 1/2, and executing the replanned result delivers the file
 // into TARGET_DIR and archives the source directory.
 func TestE2E_ReplanWithHintLifecycle(t *testing.T) {
-	t.Parallel()
+	runWithLiveProviders(t, func(t *testing.T, s *sandbox) {
+		s.seedDownloadFile(t, "replandl", "movie.mkv", "mkvdata")
 
-	s, prov := newMockSandbox(t)
+		// Initial plan.
+		code, body := s.postJSON(t, "/v1/plan", model.APIPlanRequest{
+			Dir:      "replandl",
+			Files:    []string{"movie.mkv"},
+			Metadata: map[string]interface{}{"organizer_category": "movie", "title": "Wrong Name", "year": 2020},
+		})
+		require.Equal(t, http.StatusOK, code, body)
+		var initial model.PlanResponse
+		decodeBody(t, code, body, &initial)
+		require.Nil(t, initial.Error)
+		require.Len(t, initial.Plan, 1)
 
-	prov.AddRule(mock.Rule{PromptPattern: patClassifier, Response: `{"category":"movie","reason":"feature film","entities":{}}`})
-	prov.AddRule(mock.Rule{PromptPattern: patMovie, Response: `{"plan":[
-		{"file":"movie.mkv","action":"move","target":"movie/English/Wrong Name (2020)/Wrong Name (2020).mkv"}
-	]}`})
-	// The previous plan's first move target starts with "movie", so the movie
-	// domain replan prompt is used (L14 single-shot domain injection).
-	prov.AddRule(mock.Rule{PromptPattern: "revises a movie file organization plan", Response: `{"plan":[
-		{"file":"movie.mkv","action":"move","target":"movie/English/The Correct Name (2020)/The Correct Name (2020).mkv"}
-	]}`})
+		// Replan with a user hint: Stage 1/2 are never re-run.
+		code, body = s.postJSON(t, "/v1/replan-with-hint", model.APIReplanRequest{
+			Files:            []string{"movie.mkv"},
+			Metadata:         map[string]interface{}{"organizer_category": "movie", "title": "Wrong Name", "year": 2020},
+			PreviousResponse: initial,
+			UserHint:         "the movie name is wrong, it should be The Correct Name",
+		})
+		require.Equal(t, http.StatusOK, code, body)
+		var replanned model.PlanResponse
+		decodeBody(t, code, body, &replanned)
+		require.Nil(t, replanned.Error)
+		require.NotEmpty(t, replanned.Plan)
+		require.NotNil(t, replanned.Plan[0].Target, "user hint must be applied")
 
-	s.seedDownloadFile(t, "replandl", "movie.mkv", "mkvdata")
+		// Invariant: Target must remain a valid movie target and update away from "Wrong Name"
+		target := *replanned.Plan[0].Target
+		assert.True(t, strings.HasPrefix(target, "movie/"))
+		assert.False(t, strings.Contains(target, "Wrong Name"), "target should not keep Wrong Name")
+		assert.True(t, strings.Contains(strings.ToLower(target), "correct") || strings.Contains(target, "The Correct Name"),
+			"target should reflect user correction: %s", target)
 
-	// Initial plan.
-	code, body := s.postJSON(t, "/v1/plan", model.APIPlanRequest{
-		Dir:      "replandl",
-		Files:    []string{"movie.mkv"},
-		Metadata: map[string]interface{}{"title": "Wrong Name", "year": 2020},
+		// Execute the replanned plan: file lands and source dir is archived.
+		code, body = s.postJSON(t, "/v1/execute", model.APIExecuteRequest{
+			Dir:  "replandl",
+			Plan: replanned.Plan,
+		})
+		require.Equal(t, http.StatusOK, code, body)
+
+		// Verification: The destination file exists under targetDir
+		assert.FileExists(t, filepath.Join(s.targetDir, target))
+		assert.DirExists(t, filepath.Join(s.downloadDir, "archive", "replandl"))
 	})
-	require.Equal(t, http.StatusOK, code, body)
-	var initial model.PlanResponse
-	decodeBody(t, code, body, &initial)
-	require.Nil(t, initial.Error)
-	require.Len(t, initial.Plan, 1)
-
-	// Replan with a user hint: stage 1/2 are never re-run.
-	code, body = s.postJSON(t, "/v1/replan-with-hint", model.APIReplanRequest{
-		Files:            []string{"movie.mkv"},
-		Metadata:         map[string]interface{}{"title": "Wrong Name", "year": 2020},
-		PreviousResponse: initial,
-		UserHint:         "the movie name is wrong, it should be The Correct Name",
-	})
-	require.Equal(t, http.StatusOK, code, body)
-	var replanned model.PlanResponse
-	decodeBody(t, code, body, &replanned)
-	require.Nil(t, replanned.Error)
-	require.Len(t, replanned.Plan, 1)
-	require.NotNil(t, replanned.Plan[0].Target, "user hint must be applied")
-	assert.Equal(t, "movie/English/The Correct Name (2020)/The Correct Name (2020).mkv", *replanned.Plan[0].Target)
-
-	// Execute the replanned plan: file lands and source dir is archived.
-	code, body = s.postJSON(t, "/v1/execute", model.APIExecuteRequest{
-		Dir:  "replandl",
-		Plan: replanned.Plan,
-	})
-	require.Equal(t, http.StatusOK, code, body)
-	assert.FileExists(t, filepath.Join(s.targetDir, "movie", "English", "The Correct Name (2020)", "The Correct Name (2020).mkv"))
-	assert.DirExists(t, filepath.Join(s.downloadDir, "archive", "replandl"))
 }

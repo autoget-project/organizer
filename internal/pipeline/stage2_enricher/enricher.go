@@ -234,6 +234,8 @@ func (e *Enricher) enrichBangoPorn(ctx context.Context, files []string, metadata
 	if len(enriched.Actors) == 0 {
 		if actorArr := toStringSlice(entities["actors"]); len(actorArr) > 0 {
 			enriched.Actors = actorArr
+		} else if actorArr := toStringSlice(metadata["actors"]); len(actorArr) > 0 {
+			enriched.Actors = actorArr
 		}
 	}
 

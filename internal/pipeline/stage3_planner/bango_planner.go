@@ -122,7 +122,7 @@ func (p *BangoPlanner) Plan(ctx context.Context, pc *PlannerContext) ([]model.Pl
 	return actions, nil
 }
 
-const bangoPlannerPrompt = `You are a specialized file mover for bango porn videos. Your task is to generate new filenames for video files based on their bango (番号) identifiers. The target directory is pre-computed; you only return new filenames.
+const bangoPlannerPrompt = `You are a specialized file organizer for media files with bango (番号) identifiers. Your task is to generate new filenames for video files based on their bango identifiers. The target directory is pre-computed; you only return new filenames.
 
 ## Core Rules:
 1. **Default behavior**: Generate the new filename using the bango.ext format.
@@ -132,12 +132,11 @@ const bangoPlannerPrompt = `You are a specialized file mover for bango porn vide
 ## Special Cases:
 
 ### Case 1: bango-C.ext format (HIGHEST PRIORITY)
-- If the filename already follows the pattern "bango-C.ext" (where C is a hint the video has Chinese subtitles), keep the original filename unchanged.
+- If the filename contains a bango with "-C" suffix (indicating Chinese subtitles), keep the "-C" suffix and always convert the bango portion to UPPERCASE (e.g., "ssis-698-C.mp4" -> "SSIS-698-C.mp4").
 - The "-C" Chinese-subtitle rule takes precedence over multi-part renumbering: "SSIS-698-C.mp4" stays "SSIS-698-C.mp4" even when other parts exist.
 
 ### Case 2: Uppercase bango
-- Always use uppercase for the bango portion when renaming.
-- Example: "ssis-698.mp4" -> rename to "SSIS-698.mp4".
+- Always use UPPERCASE for the entire bango portion (e.g. "ssis-698.mp4" -> "SSIS-698.mp4").
 
 ### Case 3: Multi-part files
 - Multiple files sharing the same bango with different suffixes (A/B/C, cd1/cd2, partA/partB, 上卷/下卷, DISC1/DISC2...) must be renumbered to "bango.part.1.ext", "bango.part.2.ext", "bango.part.3.ext", and so on, preserving the original file extension and following the natural watching order.

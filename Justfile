@@ -6,7 +6,11 @@ default:
 
 # Quality Gate: compile/build the project
 build:
-	go build ./...
+	go build -o build/ ./...
+
+# Build Docker container image
+build-image tag="ghcr.io/autoget-project/organizer:latest":
+	docker build -t {{tag}} .
 
 # Quality Gate: execute unit/integration tests
 test:
@@ -22,7 +26,7 @@ lint:
 
 # Run end-to-end (E2E) tests
 test-e2e:
-	go test ./tests/e2e/...
+	E2E_TEST=1 go test -v ./tests/e2e/...
 
 # Alias for the end-to-end suite
 e2e: test-e2e

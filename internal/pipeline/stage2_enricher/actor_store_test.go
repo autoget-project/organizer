@@ -86,26 +86,14 @@ func TestActorStore_FlockConcurrency(t *testing.T) {
 func TestActorStore_ParseArchived1Json(t *testing.T) {
 	t.Parallel()
 
-	// Extract aliases from archived/1.json (a captured FlareSolverr HTML
-	// response), when the fixture is available.
-	paths := []string{
-		"../../../archived/1.json",
-		"../../archived/1.json",
-		"archived/1.json",
-	}
-	var data []byte
-	var err error
-	for _, p := range paths {
-		data, err = os.ReadFile(p)
-		if err == nil {
-			break
+	fixture := []byte(`{
+		"status": "ok",
+		"solution": {
+			"response": "<html><body><div class=\"actor-box\"><a href=\"#\" title=\"三上悠亞, 鬼头桃菜\">三上悠亚</a></div></body></html>"
 		}
-	}
-	if err != nil {
-		t.Skipf("archived/1.json fixture not found: %v", err)
-	}
+	}`)
 
-	aliases := ParseJavDBResponse(data, "三上悠亚")
+	aliases := ParseJavDBResponse(fixture, "三上悠亚")
 	assert.NotEmpty(t, aliases)
 
 	// 三上悠亜 and 鬼头桃菜 must be extracted from title="三上悠亞, 鬼头桃菜".

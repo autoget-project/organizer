@@ -1,18 +1,9 @@
 // Package e2e hosts the full-scenario end-to-end test suite. It drives the
 // real HTTP surface (/v1/plan, /v1/execute, /v1/replan-with-hint) inside an
-// isolated sandbox (t.TempDir) and covers one agent per file: the Stage 1
-// categorizer, the Stage 3 movers (simple / tv_series / movie / bango_porn /
-// subtitle), the executor and the replan agent, so the planning & execution
-// behavior of every pipeline stage is verified over the wire.
-//
-// Offline CI: LLM-dependent paths run against the deterministic mock provider
-// (rule-based structured responses identical to what the real LLM must
-// return), so `just test` / `just test-e2e` never break offline builds.
-// Live CI: TestE2E_LiveProviderBusinessLoop in live_test.go loads the
-// gitignored .env.e2e (XAI_API_KEY / GEMINI_API_KEY plus per-provider
-// XAI_MODEL / GEMINI_MODEL, already-exported variables win) - it gracefully
-// skips without configuration and runs the real business closed loop for
-// every configured provider in parallel subtests.
+// isolated sandbox (t.TempDir) using live LLM providers (configured via
+// .env.e2e) whenever E2E_TEST=1 is set, verifying the real AI reasoning and
+// physical execution of every pipeline stage over the wire.
+// Tests gracefully skip when E2E_TEST=1 is not set.
 package e2e
 
 import (
@@ -23,20 +14,106 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autoget-project/organizer/internal/ai"
-	"github.com/autoget-project/organizer/internal/ai/mock"
+	"github.com/autoget-project/organizer/internal/ai/gemini"
+	"github.com/autoget-project/organizer/internal/ai/grok"
 	"github.com/autoget-project/organizer/internal/handler"
 	"github.com/autoget-project/organizer/internal/model"
 	"github.com/autoget-project/organizer/internal/pipeline"
 	stage2enricher "github.com/autoget-project/organizer/internal/pipeline/stage2_enricher"
 	"github.com/autoget-project/organizer/internal/ptr"
 	"github.com/autoget-project/organizer/internal/service"
+	"github.com/autoget-project/organizer/internal/testutil"
 )
+
+// liveTarget defines a configured real LLM provider target.
+type liveTarget struct {
+	name    string
+	newProv func(t *testing.T) ai.Provider
+}
+
+// getLiveTargets loads .env.e2e and discovers configured live AI providers.
+// Skips the test if E2E_TEST != "1" or no live provider is configured.
+func getLiveTargets(t *testing.T) []liveTarget {
+	t.Helper()
+
+	if os.Getenv("E2E_TEST") != "1" {
+		t.Skip("Skipping E2E test: E2E_TEST=1 is not set")
+	}
+
+	testutil.LoadEnvFile(t, filepath.Join("..", "..", ".env.e2e"))
+
+	var targets []liveTarget
+
+	xaiModel := strings.TrimSpace(os.Getenv("XAI_MODEL"))
+	xaiKey := strings.TrimSpace(os.Getenv("XAI_API_KEY"))
+	if xaiModel != "" && xaiKey != "" {
+		targets = append(targets, liveTarget{
+			name: "grok_" + xaiModel,
+			newProv: func(t *testing.T) ai.Provider {
+				t.Helper()
+				return grok.NewProvider(xaiKey, ai.WithModel(xaiModel))
+			},
+		})
+	}
+
+	geminiModel := strings.TrimSpace(os.Getenv("GEMINI_MODEL"))
+	geminiKey := strings.TrimSpace(os.Getenv("GEMINI_API_KEY"))
+	if geminiModel != "" && geminiKey != "" {
+		targets = append(targets, liveTarget{
+			name: "gemini_" + geminiModel,
+			newProv: func(t *testing.T) ai.Provider {
+				t.Helper()
+				prov, err := gemini.NewProvider(geminiKey, ai.WithModel(geminiModel))
+				require.NoError(t, err)
+				return prov
+			},
+		})
+	}
+
+	if len(targets) == 0 {
+		t.Skip("Skipping E2E test: neither XAI (XAI_MODEL+XAI_API_KEY) nor Gemini (GEMINI_MODEL+GEMINI_API_KEY) configured")
+	}
+
+	return targets
+}
+
+// runWithLiveProviders runs testFn against all configured live AI providers.
+func runWithLiveProviders(t *testing.T, testFn func(t *testing.T, s *sandbox)) {
+	t.Helper()
+
+	targets := getLiveTargets(t)
+	for _, target := range targets {
+		t.Run(target.name, func(t *testing.T) {
+			t.Parallel()
+			prov := target.newProv(t)
+			s := newSandbox(t, prov)
+			testFn(t, s)
+		})
+	}
+}
+
+// runWithLiveProvidersAndActorStore runs testFn against all configured live AI providers with a populated actor store.
+func runWithLiveProvidersAndActorStore(t *testing.T, actorFile string, testFn func(t *testing.T, s *sandbox, store *stage2enricher.ActorStore)) {
+	t.Helper()
+
+	targets := getLiveTargets(t)
+	for _, target := range targets {
+		t.Run(target.name, func(t *testing.T) {
+			t.Parallel()
+			prov := target.newProv(t)
+			store := stage2enricher.NewActorStore(actorFile, "", prov)
+			s := newSandboxWithActorStore(t, prov, store)
+			testFn(t, s, store)
+		})
+	}
+}
 
 // sandbox is an isolated E2E environment: a live HTTP server exposing the
 // REST routes, backed by temporary DOWNLOAD_COMPLETED_DIR / TARGET_DIR roots
@@ -52,6 +129,12 @@ type sandbox struct {
 // StartupCheck-equivalent validation would never report missing dirs.
 func newSandbox(t *testing.T, prov ai.Provider) *sandbox {
 	t.Helper()
+	return newSandboxWithActorStore(t, prov, nil)
+}
+
+// newSandboxWithActorStore wires the full server around the given provider and actor store.
+func newSandboxWithActorStore(t *testing.T, prov ai.Provider, store *stage2enricher.ActorStore) *sandbox {
+	t.Helper()
 
 	downloadDir := t.TempDir()
 	targetDir := t.TempDir()
@@ -61,9 +144,8 @@ func newSandbox(t *testing.T, prov ai.Provider) *sandbox {
 			"pre-create target subdirectory %s", d)
 	}
 
-	// Stage 2 runs with nil metadata sources: enrichment degrades gracefully
-	// (M6) exactly like the offline production degradation path.
-	pipe := pipeline.NewPipeline(prov, stage2enricher.NewEnricher(nil, nil, nil, nil), downloadDir)
+	// Stage 2 runs with optional actorStore and nil external network sources
+	pipe := pipeline.NewPipeline(prov, stage2enricher.NewEnricher(nil, nil, store, prov), downloadDir)
 	exec := service.NewExecutor(downloadDir, targetDir)
 
 	mux := http.NewServeMux()
@@ -79,14 +161,6 @@ func newSandbox(t *testing.T, prov ai.Provider) *sandbox {
 		downloadDir: downloadDir,
 		targetDir:   targetDir,
 	}
-}
-
-// newMockSandbox creates a sandbox around a fresh rule-based mock provider.
-func newMockSandbox(t *testing.T) (*sandbox, *mock.Provider) {
-	t.Helper()
-
-	prov := mock.NewProvider()
-	return newSandbox(t, prov), prov
 }
 
 // seedDownloadFile materializes a file inside DOWNLOAD_COMPLETED_DIR/{dir}.
@@ -160,18 +234,7 @@ func assertPlanContract(t *testing.T, code int, body string, want map[string]mod
 	}
 }
 
-// wantMove / wantSkip build the expected action entries.
+// wantMove builds the expected move action entry.
 func wantMove(target string) model.PlanAction {
 	return model.PlanAction{Action: "move", Target: ptr.Str(target)}
 }
-func wantSkip() model.PlanAction { return model.PlanAction{Action: "skip"} }
-
-// LLM prompt fingerprints used by mock rules (must mirror production prompts).
-const (
-	patClassifier = "media categorization assistant"
-	patTVPlanner  = "organizes TV series downloads"
-	patMovie      = "organizes movie downloads"
-	patBango      = "specialized file mover for bango porn videos"
-	patSubtitle   = "organizes subtitle files"
-	patReplan     = "revises file organization plans based on user feedback"
-)

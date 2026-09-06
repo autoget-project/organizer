@@ -81,6 +81,12 @@ func (p *Provider) GenerateStructured(ctx context.Context, prompt string, schema
 		Temperature:      ptr.Float32(float32(p.options.Temperature)),
 		ResponseMIMEType: "application/json",
 		ResponseSchema:   responseSchema,
+		SafetySettings: []*genai.SafetySetting{
+			{Category: genai.HarmCategoryHarassment, Threshold: genai.HarmBlockThresholdBlockNone},
+			{Category: genai.HarmCategoryHateSpeech, Threshold: genai.HarmBlockThresholdBlockNone},
+			{Category: genai.HarmCategorySexuallyExplicit, Threshold: genai.HarmBlockThresholdBlockNone},
+			{Category: genai.HarmCategoryDangerousContent, Threshold: genai.HarmBlockThresholdBlockNone},
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("gemini API request failed: %w", err)
@@ -88,7 +94,8 @@ func (p *Provider) GenerateStructured(ctx context.Context, prompt string, schema
 
 	content := resp.Text()
 	if content == "" {
-		return fmt.Errorf("gemini API returned no text parts in candidate")
+		fullResp, _ := json.Marshal(resp)
+		return fmt.Errorf("gemini API returned no text parts in candidate: resp=%s", string(fullResp))
 	}
 
 	if err := json.Unmarshal([]byte(content), result); err != nil {
