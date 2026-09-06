@@ -17,7 +17,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"organizer/internal/ai"
+	"github.com/autoget-project/organizer/internal/ai"
 )
 
 const (

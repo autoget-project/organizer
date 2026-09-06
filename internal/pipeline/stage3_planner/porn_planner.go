@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"organizer/internal/model"
-	"organizer/internal/ptr"
+	"github.com/autoget-project/organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/ptr"
 )
 
 // PornPlanner plans non-bango porn downloads with the local naming fallback

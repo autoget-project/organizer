@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/model"
 )
 
 // Executor performs physical file moves and source directory archiving.

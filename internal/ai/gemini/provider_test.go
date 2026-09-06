@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"organizer/internal/ai"
-	"organizer/internal/ai/gemini"
+	"github.com/autoget-project/organizer/internal/ai"
+	"github.com/autoget-project/organizer/internal/ai/gemini"
 )
 
 type TestOutput struct {

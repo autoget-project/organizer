@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"organizer/internal/model"
-	"organizer/internal/ptr"
+	"github.com/autoget-project/organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/ptr"
 )
 
 func mustWriteFile(t *testing.T, path, content string) {

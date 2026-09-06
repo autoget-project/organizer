@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/model"
 )
 
 // Config holds the application configuration loaded from environment variables.

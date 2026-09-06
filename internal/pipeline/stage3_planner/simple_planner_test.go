@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/model"
 )
 
 // planActionsEqual compares two plans ignoring order.

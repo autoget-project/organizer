@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"organizer/internal/ai"
-	"organizer/internal/model"
-	"organizer/internal/ptr"
+	"github.com/autoget-project/organizer/internal/ai"
+	"github.com/autoget-project/organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/ptr"
 )
 
 // BangoFilenameMapping maps one video file to its new canonical filename.

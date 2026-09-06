@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"organizer/internal/ai"
-	"organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/ai"
+	"github.com/autoget-project/organizer/internal/model"
 )
 
 // ClassifierLLMResponse defines the structured JSON output schema for the Stage 1 Classifier LLM.

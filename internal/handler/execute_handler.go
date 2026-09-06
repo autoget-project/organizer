@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"organizer/internal/model"
-	"organizer/internal/service"
+	"github.com/autoget-project/organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/service"
 )
 
 // ExecuteHandler serves POST /v1/execute.

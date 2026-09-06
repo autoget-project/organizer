@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"organizer/internal/ai"
-	"organizer/internal/ai/grok"
+	"github.com/autoget-project/organizer/internal/ai"
+	"github.com/autoget-project/organizer/internal/ai/grok"
 )
 
 type TestOutput struct {

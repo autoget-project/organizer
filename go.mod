@@ -1,4 +1,4 @@
-module organizer
+module github.com/autoget-project/organizer
 
 go 1.27.1
 

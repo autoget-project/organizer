@@ -14,7 +14,7 @@ test:
 
 # Quality Gate: format source code using goimports
 fmt:
-	goimports -w -local organizer .
+	goimports -w -local github.com/autoget-project/organizer .
 
 # Quality Gate: run static analysis and linting using golangci-lint
 lint:

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"organizer/internal/ai/mock"
-	"organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/ai/mock"
+	"github.com/autoget-project/organizer/internal/model"
 )
 
 // TestE2E_SubtitleMoverSemanticLanguage covers companion subtitle semantic

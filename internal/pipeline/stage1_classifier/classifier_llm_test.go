@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"organizer/internal/ai/mock"
-	"organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/ai/mock"
+	"github.com/autoget-project/organizer/internal/model"
 )
 
 func TestClassifierLLM_AudioDisambiguation(t *testing.T) {

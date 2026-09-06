@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"organizer/internal/model"
-	"organizer/internal/ptr"
+	"github.com/autoget-project/organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/ptr"
 )
 
 // SimplePlan archives the 5 simple categories (photobook, audio_book, book,

@@ -11,8 +11,8 @@ import (
 
 	"google.golang.org/genai"
 
-	"organizer/internal/ai"
-	"organizer/internal/ptr"
+	"github.com/autoget-project/organizer/internal/ai"
+	"github.com/autoget-project/organizer/internal/ptr"
 )
 
 const DefaultModel = "gemini-1.5-pro"

@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/model"
 )
 
 // Supported extensions for rule matching.

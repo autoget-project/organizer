@@ -3,8 +3,8 @@ package e2e
 import (
 	"testing"
 
-	"organizer/internal/ai/mock"
-	"organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/ai/mock"
+	"github.com/autoget-project/organizer/internal/model"
 )
 
 // TestE2E_TVSeriesMover drives the TV series mover through the full pipeline:

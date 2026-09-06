@@ -14,13 +14,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"organizer/internal/ai"
-	"organizer/internal/ai/mock"
-	"organizer/internal/model"
-	"organizer/internal/pipeline"
-	stage2enricher "organizer/internal/pipeline/stage2_enricher"
-	"organizer/internal/ptr"
-	"organizer/internal/service"
+	"github.com/autoget-project/organizer/internal/ai"
+	"github.com/autoget-project/organizer/internal/ai/mock"
+	"github.com/autoget-project/organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/pipeline"
+	stage2enricher "github.com/autoget-project/organizer/internal/pipeline/stage2_enricher"
+	"github.com/autoget-project/organizer/internal/ptr"
+	"github.com/autoget-project/organizer/internal/service"
 )
 
 // env is an offline test server wiring every REST endpoint around a mock

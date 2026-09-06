@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/model"
 )
 
 // garbageExtensions lists companion junk files that must never be moved into

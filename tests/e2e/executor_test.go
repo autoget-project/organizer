@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"organizer/internal/ai/mock"
-	"organizer/internal/model"
-	"organizer/internal/ptr"
+	"github.com/autoget-project/organizer/internal/ai/mock"
+	"github.com/autoget-project/organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/ptr"
 )
 
 // TestE2E_ExecutePlan covers the physical execution contract: a move lands

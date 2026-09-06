@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"organizer/internal/ai/mock"
-	"organizer/internal/model"
-	stage2enricher "organizer/internal/pipeline/stage2_enricher"
+	"github.com/autoget-project/organizer/internal/ai/mock"
+	"github.com/autoget-project/organizer/internal/model"
+	stage2enricher "github.com/autoget-project/organizer/internal/pipeline/stage2_enricher"
 )
 
 func newTestPipeline(t *testing.T, prov *mock.Provider, dir string) *Pipeline {

@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"organizer/internal/ai"
-	"organizer/internal/metadata"
-	"organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/ai"
+	"github.com/autoget-project/organizer/internal/metadata"
+	"github.com/autoget-project/organizer/internal/model"
 )
 
 var (

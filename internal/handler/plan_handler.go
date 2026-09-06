@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"organizer/internal/model"
-	"organizer/internal/pipeline"
+	"github.com/autoget-project/organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/pipeline"
 )
 
 // PlanHandler serves POST /v1/plan.

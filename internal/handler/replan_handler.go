@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"organizer/internal/ai"
-	"organizer/internal/model"
-	stage3planner "organizer/internal/pipeline/stage3_planner"
-	stage4postprocess "organizer/internal/pipeline/stage4_postprocess"
+	"github.com/autoget-project/organizer/internal/ai"
+	"github.com/autoget-project/organizer/internal/model"
+	stage3planner "github.com/autoget-project/organizer/internal/pipeline/stage3_planner"
+	stage4postprocess "github.com/autoget-project/organizer/internal/pipeline/stage4_postprocess"
 )
 
 // replanDomain identifies the Stage 3 domain an existing plan belongs to.

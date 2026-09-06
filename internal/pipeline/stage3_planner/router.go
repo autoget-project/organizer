@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"organizer/internal/ai"
-	"organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/ai"
+	"github.com/autoget-project/organizer/internal/model"
 )
 
 // PlannerContext carries the inputs required by Stage 3 domain planners.

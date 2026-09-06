@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"organizer/internal/model"
+	"github.com/autoget-project/organizer/internal/model"
 )
 
 // FilePlanItem is a single file mapping produced by a video planner LLM.

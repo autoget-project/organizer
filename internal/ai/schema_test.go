@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"organizer/internal/ai"
+	"github.com/autoget-project/organizer/internal/ai"
 )
 
 type NestedStruct struct {
