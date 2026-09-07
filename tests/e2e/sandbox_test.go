@@ -99,6 +99,20 @@ func runWithLiveProviders(t *testing.T, testFn func(t *testing.T, s *sandbox)) {
 	}
 }
 
+// runWithLiveAIProviders passes the live ai.Provider directly to testFn without spinning up HTTP server.
+func runWithLiveAIProviders(t *testing.T, testFn func(t *testing.T, prov ai.Provider)) {
+	t.Helper()
+
+	targets := getLiveTargets(t)
+	for _, target := range targets {
+		t.Run(target.name, func(t *testing.T) {
+			t.Parallel()
+			prov := target.newProv(t)
+			testFn(t, prov)
+		})
+	}
+}
+
 // runWithLiveProvidersAndActorStore runs testFn against all configured live AI providers with a populated actor store.
 func runWithLiveProvidersAndActorStore(t *testing.T, actorFile string, testFn func(t *testing.T, s *sandbox, store *stage2enricher.ActorStore)) {
 	t.Helper()
