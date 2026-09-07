@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -287,8 +288,10 @@ Return a JSON object with:
 		return nil, err
 	}
 	if len(out.Aliases) > 0 {
+		log.Printf("stage2 actor alias expansion: %v -> %v", currentAliases, out.Aliases)
 		return out.Aliases, nil
 	}
+	log.Printf("stage2 actor alias expansion: llm returned no aliases, keeping %v", currentAliases)
 	return currentAliases, nil
 }
 

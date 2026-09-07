@@ -67,21 +67,27 @@ func NewEnricher(tmdb TMDBSource, jav JAVSource, actorStore *ActorStore, aiProvi
 
 // Enrich enriches metadata according to media Category, applying graceful degradation on failures (M6).
 func (e *Enricher) Enrich(ctx context.Context, cat model.Category, files []string, metadata map[string]interface{}, entities map[string]interface{}) (model.EnrichedMetadata, error) {
+	var enriched model.EnrichedMetadata
+	var err error
 	switch cat {
 	case model.CategoryMovie:
-		return e.enrichMovie(ctx, files, metadata, entities)
+		enriched, err = e.enrichMovie(ctx, files, metadata, entities)
 	case model.CategoryTVSeries:
-		return e.enrichTVSeries(ctx, files, metadata, entities)
+		enriched, err = e.enrichTVSeries(ctx, files, metadata, entities)
 	case model.CategoryBangoPorn:
-		return e.enrichBangoPorn(ctx, files, metadata, entities)
+		enriched, err = e.enrichBangoPorn(ctx, files, metadata, entities)
 	case model.CategoryPorn:
-		return e.enrichPorn(ctx, files, metadata, entities)
+		enriched, err = e.enrichPorn(ctx, files, metadata, entities)
 	default:
 		// simple categories (book, music, photobook, audio_book, music_video) or unknown: skip Stage 2
+		log.Printf("stage2 enrichment: category=%s skipped (simple or unknown category)", cat)
 		return model.EnrichedMetadata{
 			Language: model.LanguageOthers,
 		}, nil
 	}
+	log.Printf("stage2 enrichment: category=%s title=%q year=%d bango=%q actors=%v language=%s is_vr=%t from_madou=%t",
+		cat, enriched.Title, enriched.Year, enriched.Bango, enriched.Actors, enriched.Language, enriched.IsVR, enriched.FromMadou)
+	return enriched, err
 }
 
 func (e *Enricher) enrichMovie(ctx context.Context, files []string, metadata map[string]interface{}, entities map[string]interface{}) (model.EnrichedMetadata, error) {

@@ -64,6 +64,7 @@ func (p *TVPlanner) Plan(ctx context.Context, pc *PlannerContext) ([]model.PlanA
 	if err := p.provider.GenerateStructured(ctx, prompt, LLMPlanResponse{}, &resp); err != nil {
 		return nil, fmt.Errorf("tv planner llm generation failed: %w", err)
 	}
+	logLLMPlanItems("tv", resp.Plan)
 
 	actions := ItemsToActions(resp.Plan, videos)
 	for _, o := range others {

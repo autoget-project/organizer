@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/autoget-project/organizer/internal/ai"
 )
@@ -44,6 +45,7 @@ Return your answer strictly matching the required JSON schema.`
 func GroundWithSearch(ctx context.Context, provider ai.Provider, files []string, metadata map[string]interface{}) SearchContext {
 	sp, ok := provider.(ai.SearchProvider)
 	if !ok {
+		log.Printf("stage1 search grounding: provider %s does not support search, skipped", provider.Name())
 		return SearchContext{}
 	}
 
@@ -60,7 +62,10 @@ func GroundWithSearch(ctx context.Context, provider ai.Provider, files []string,
 	var result SearchContext
 	if err := sp.GenerateStructuredWithSearch(ctx, prompt, SearchContext{}, &result); err != nil {
 		// Non-fatal: degrade gracefully if search fails
+		log.Printf("stage1 search grounding failed, continuing without search context: %v", err)
 		return SearchContext{}
 	}
+	log.Printf("stage1 search grounding: detected_type=%q official_title=%q studio=%q year=%d actors=%v summary=%q",
+		result.DetectedType, result.OfficialTitle, result.Studio, result.Year, result.Actors, result.SearchSummary)
 	return result
 }

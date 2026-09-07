@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -103,6 +104,9 @@ func (h *ReplanHandler) callReplanLLM(ctx context.Context, req model.APIReplanRe
 	var resp stage3planner.LLMPlanResponse
 	if err := h.provider.GenerateStructured(ctx, prompt, stage3planner.LLMPlanResponse{}, &resp); err != nil {
 		return nil, fmt.Errorf("replan llm generation failed: %w", err)
+	}
+	for _, item := range resp.Plan {
+		log.Printf("replan llm: file=%q action=%q target=%q reason=%q", item.File, item.Action, item.Target, item.Reason)
 	}
 	return resp.Plan, nil
 }

@@ -47,6 +47,7 @@ func (p *Pipeline) CreatePlan(ctx context.Context, dir string, files []string, m
 	if err != nil {
 		return model.PlanResponse{}, fmt.Errorf("stage1 classification failed: %w", err)
 	}
+	log.Printf("pipeline stage1 final: dir=%q files=%d category=%s", dir, len(files), res.Category)
 
 	// Stage 2: metadata enrichment with graceful degradation (M6: never fatal).
 	var enriched model.EnrichedMetadata
@@ -77,8 +78,16 @@ func (p *Pipeline) CreatePlan(ctx context.Context, dir string, files []string, m
 	}
 
 	// Stage 4b: physical security sanitization (traversal defense + garbage skip).
+	finalPlan := stage4postprocess.SanitizePlan(plan)
+	for i := range finalPlan {
+		if finalPlan[i].Action == "move" && finalPlan[i].Target != nil {
+			log.Printf("pipeline final plan: %q -> %q", finalPlan[i].File, *finalPlan[i].Target)
+		} else {
+			log.Printf("pipeline final plan: %q -> %s", finalPlan[i].File, finalPlan[i].Action)
+		}
+	}
 	return model.PlanResponse{
-		Plan:  stage4postprocess.SanitizePlan(plan),
+		Plan:  finalPlan,
 		Error: nil,
 	}, nil
 }

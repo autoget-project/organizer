@@ -120,6 +120,7 @@ func (c *ClassifierLLM) Classify(ctx context.Context, files []string, metadata m
 	// Fast path: Exactly one specialist returned "yes" with no conflicts
 	if len(yesResults) == 1 {
 		chosen := yesResults[0]
+		log.Printf("stage1 fast path: single yes from %s, reason=%q", chosen.Category, chosen.Response.Reason)
 		return model.ClassifierResult{
 			Category: chosen.Category,
 			NeedLLM:  true,
@@ -130,6 +131,7 @@ func (c *ClassifierLLM) Classify(ctx context.Context, files []string, metadata m
 	// If no yes, but exactly one maybe and no other maybes or yeses
 	if len(yesResults) == 0 && len(maybeResults) == 1 {
 		chosen := maybeResults[0]
+		log.Printf("stage1 fast path: single maybe from %s, reason=%q", chosen.Category, chosen.Response.Reason)
 		return model.ClassifierResult{
 			Category: chosen.Category,
 			NeedLLM:  true,
@@ -202,6 +204,7 @@ func entitiesToMap(e CheckerEntities, reason string) map[string]interface{} {
 func ClassifyPipeline(ctx context.Context, provider ai.Provider, files []string, metadata map[string]interface{}) (model.ClassifierResult, error) {
 	res, matched := MatchByRules(files, metadata)
 	if matched {
+		log.Printf("stage1 rule match: category=%s", res.Category)
 		return res, nil
 	}
 

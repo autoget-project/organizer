@@ -112,6 +112,24 @@ func TestE2E_CategorizerLLMDisambiguation(t *testing.T) {
 			// Invariant: should plan under porn/
 			assert.Contains(t, *resp.Plan[0].Target, "porn/")
 		})
+
+		t.Run("western_porn_dotted_date_girlsway", func(t *testing.T) {
+			files := []string{
+				"GirlsWay.26.09.06.Khloe.Kapri.Megan.Mistakes.Runaway.Brides.Regret.XXX.2160p.mp4",
+			}
+			code, body := s.postJSON(t, "/v1/plan", model.APIPlanRequest{
+				Dir:   "porndl",
+				Files: files,
+			})
+			require.Equal(t, 200, code, body)
+			var resp model.PlanResponse
+			decodeBody(t, code, body, &resp)
+			assert.Nil(t, resp.Error)
+			require.NotEmpty(t, resp.Plan)
+			assert.Equal(t, "move", resp.Plan[0].Action, "plan: %#v", resp.Plan)
+			require.NotNil(t, resp.Plan[0].Target)
+			assert.Contains(t, *resp.Plan[0].Target, "porn/")
+		})
 	})
 }
 
@@ -128,6 +146,13 @@ func TestE2E_Stage1CheckersOnly(t *testing.T) {
 			name: "western_adult_girlsway",
 			files: []string{
 				"GirlsWay Khloe Kapri Megan Mistakes Runaway Brides Regret 2026 2160p WEB-DL H264 AAC2.0-VSEX.mp4",
+			},
+			wantCategory: model.CategoryPorn,
+		},
+		{
+			name: "western_adult_girlsway_dotted_date",
+			files: []string{
+				"GirlsWay.26.09.06.Khloe.Kapri.Megan.Mistakes.Runaway.Brides.Regret.XXX.2160p.mp4",
 			},
 			wantCategory: model.CategoryPorn,
 		},

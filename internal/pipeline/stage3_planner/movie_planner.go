@@ -64,6 +64,7 @@ func (p *MoviePlanner) Plan(ctx context.Context, pc *PlannerContext) ([]model.Pl
 	if err := p.provider.GenerateStructured(ctx, prompt, LLMPlanResponse{}, &resp); err != nil {
 		return nil, fmt.Errorf("movie planner llm generation failed: %w", err)
 	}
+	logLLMPlanItems("movie", resp.Plan)
 
 	actions := ItemsToActions(resp.Plan, videos)
 	for _, o := range others {
