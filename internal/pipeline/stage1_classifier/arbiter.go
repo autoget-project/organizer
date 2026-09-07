@@ -27,7 +27,7 @@ Instructions:
    - If one specialist provides much stronger, grounded reasoning, favor that decision.
    - If multiple specialists reported "maybe", weigh the file naming patterns and metadata.
 3. Extract clean title, year, actors, bango, or imdb_id where applicable.
-4. If it is genuinely non-media or unrecognizable, return category "unknown".
+4. NEVER return "unknown" for clearly recognizable media: if the file names, metadata, specialist reasons, or your own analysis identify the content type, you MUST choose that category. Reserve "unknown" strictly for non-media or truly unrecognizable content (e.g. software installers, games, random data).
 
 Return your answer strictly matching the required JSON schema.`
 

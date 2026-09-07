@@ -84,9 +84,10 @@ Return your answer strictly matching the required JSON schema.`
 	audioBookCheckerPrompt = `You are a specialist media classifier determining if the given audio files represent an audiobook.
 
 Instructions:
-- Return "yes" if the files represent spoken word audiobooks, narration, or novel chapters (e.g. Chapter 1.mp3, Part 1.mp3, narrator info).
-- Return "no" if the files are musical albums, songs, or video media.
-- Return "maybe" if ambiguous.
+- Return "yes" if the files represent spoken word audiobooks, narration, or novel chapters.
+- Chapter/part markers in filenames (e.g. "Chapter 01", "Chapter_02_Silent_Spring", "Prologue", "Part 2", "第01章") or a novel/story title with sequential narration are STRONG audiobook indicators: return "yes" confidently, not "maybe".
+- Return "no" if the files are musical albums, songs, or video media. Numbered tracks named after songs, artists, or albums (e.g. "01. Welcome to New York") are music.
+- Return "maybe" only if genuinely ambiguous.
 - Extract clean_title or author if recognized.
 Return your answer strictly matching the required JSON schema.`
 
@@ -94,8 +95,8 @@ Return your answer strictly matching the required JSON schema.`
 
 Instructions:
 - Return "yes" if the files represent musical songs, music albums, artist discographies, or soundtrack tracks.
-- Return "no" if the files are audiobooks/spoken-word narration, or video media.
-- Return "maybe" if ambiguous.
+- Return "no" if the files are audiobooks/spoken-word narration (chapter/part/prologue markers or novel titles indicate audiobooks) or video media.
+- Return "maybe" only if genuinely ambiguous.
 - Extract clean_title or artist/actors if recognized.
 Return your answer strictly matching the required JSON schema.`
 

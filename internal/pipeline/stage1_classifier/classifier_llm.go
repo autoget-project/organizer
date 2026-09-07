@@ -3,6 +3,7 @@ package stage1classifier
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 
@@ -100,10 +101,13 @@ func (c *ClassifierLLM) Classify(ctx context.Context, files []string, metadata m
 	var yesResults []CheckerResult
 	var maybeResults []CheckerResult
 
+	verdicts := make([]string, 0, len(results))
 	for _, res := range results {
 		if res.Err != nil {
+			verdicts = append(verdicts, fmt.Sprintf("%s=error(%v)", res.Category, res.Err))
 			continue
 		}
+		verdicts = append(verdicts, fmt.Sprintf("%s=%s", res.Category, res.Response.Confidence))
 		switch res.Response.Confidence {
 		case ConfidenceYes:
 			yesResults = append(yesResults, res)
@@ -111,6 +115,7 @@ func (c *ClassifierLLM) Classify(ctx context.Context, files []string, metadata m
 			maybeResults = append(maybeResults, res)
 		}
 	}
+	log.Printf("stage1 specialist verdicts: [%s]", strings.Join(verdicts, ", "))
 
 	// Fast path: Exactly one specialist returned "yes" with no conflicts
 	if len(yesResults) == 1 {
@@ -138,6 +143,7 @@ func (c *ClassifierLLM) Classify(ctx context.Context, files []string, metadata m
 	// Ambiguous, multiple "yes" conflicts, multiple "maybe", or all "no": call Arbiter
 	decision, err := DecideArbiter(ctx, c.provider, files, metadata, results, searchCtx)
 	if err != nil {
+		log.Printf("stage1 arbiter failed: %v", err)
 		// Fallback: if we had at least one yes, take the first one
 		if len(yesResults) > 0 {
 			return model.ClassifierResult{
@@ -153,11 +159,17 @@ func (c *ClassifierLLM) Classify(ctx context.Context, files []string, metadata m
 		return model.ClassifierResult{Category: model.CategoryUnknown, NeedLLM: true}, err
 	}
 
+	logArbiterDecision(decision)
+
 	return model.ClassifierResult{
 		Category: decision.Category,
 		NeedLLM:  true,
 		Entities: entitiesToMap(decision.Entities, decision.Reason),
 	}, nil
+}
+
+func logArbiterDecision(d ArbiterDecision) {
+	log.Printf("stage1 arbiter decision: category=%s reason=%q", d.Category, d.Reason)
 }
 
 func entitiesToMap(e CheckerEntities, reason string) map[string]interface{} {
