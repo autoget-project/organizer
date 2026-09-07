@@ -54,6 +54,7 @@ func MatchByRules(files []string, metadata map[string]interface{}) (model.Classi
 	if metadata != nil {
 		if rawVal, ok := metadata["organizer_category"]; ok && rawVal != nil {
 			if cat, ok := parseOrganizerCategory(rawVal); ok {
+				log.Printf("stage1 rule match: organizer_category=%v -> category=%s", rawVal, cat)
 				return model.ClassifierResult{
 					Category: cat,
 					NeedLLM:  false,
@@ -68,6 +69,7 @@ func MatchByRules(files []string, metadata map[string]interface{}) (model.Classi
 		if dmmID, ok := metadata["dmm_id"]; ok && dmmID != nil {
 			dmmStr := strings.TrimSpace(toString(dmmID))
 			if dmmStr != "" {
+				log.Printf("stage1 rule match: metadata dmm_id=%q -> category=bango_porn", dmmStr)
 				entities := map[string]interface{}{
 					"dmm_id": dmmStr,
 				}
@@ -86,6 +88,7 @@ func MatchByRules(files []string, metadata map[string]interface{}) (model.Classi
 
 	// 3. Pure eBook extensions -> book
 	if allMatchExtensions(files, bookExtensions) {
+		log.Printf("stage1 rule match: all files are eBook extensions -> category=book")
 		return model.ClassifierResult{
 			Category: model.CategoryBook,
 			NeedLLM:  false,
@@ -107,6 +110,7 @@ func MatchByRules(files []string, metadata map[string]interface{}) (model.Classi
 		stem := strings.TrimSuffix(base, ext)
 
 		if standardBangoRegex.MatchString(stem) || fc2BangoRegex.MatchString(stem) {
+			log.Printf("stage1 rule match: filename %q matches bango pattern -> category=bango_porn", base)
 			entities := map[string]interface{}{
 				"bango": strings.ToUpper(stem),
 			}

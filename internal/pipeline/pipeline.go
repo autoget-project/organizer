@@ -6,6 +6,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"path/filepath"
@@ -42,6 +43,12 @@ func NewPipeline(provider ai.Provider, enricher *stage2enricher.Enricher, downlo
 // returned as error (mapped to HTTP 500 by the handler layer); normal business
 // degradation keeps the response error null (M6).
 func (p *Pipeline) CreatePlan(ctx context.Context, dir string, files []string, metadata map[string]interface{}) (model.PlanResponse, error) {
+	if metaJSON, err := json.Marshal(metadata); err == nil {
+		log.Printf("pipeline request: dir=%q files=%q metadata=%s", dir, files, metaJSON)
+	} else {
+		log.Printf("pipeline request: dir=%q files=%q metadata=%v (marshal error: %v)", dir, files, metadata, err)
+	}
+
 	// Stage 1: classification (rule screening first, LLM fallback).
 	res, err := stage1classifier.ClassifyPipeline(ctx, p.provider, files, metadata)
 	if err != nil {
