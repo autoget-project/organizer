@@ -43,6 +43,24 @@ func TestMatchByRules_OrganizerCategory(t *testing.T) {
 			wantMatched:  true,
 		},
 		{
+			// Ambiguous multi-valued organizer_category (upstream source is
+			// unsure) must NOT rule-match; it degrades to the LLM classifier.
+			// Without this the first entry (bango_porn) would win and western
+			// releases like GirlsWay end up skipped by the bango planner.
+			name:         "ambiguous_multi_category_degrades_to_llm",
+			files:        []string{"GirlsWay.26.09.06.Khloe.Kapri.XXX.2160p.mp4"},
+			organizerCat: []string{"bango_porn", "porn"},
+			wantMatched:  false,
+		},
+		{
+			// Duplicate entries of the same category are not ambiguous.
+			name:         "duplicate_single_category",
+			files:        []string{"video.mp4"},
+			organizerCat: []string{"porn", "porn"},
+			wantCategory: model.CategoryPorn,
+			wantMatched:  true,
+		},
+		{
 			// All invalid items keep evaluating: the pure book check wins.
 			name:         "all_invalid_items",
 			files:        []string{"ebook.epub"},

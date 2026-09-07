@@ -53,14 +53,20 @@ func MatchByRules(files []string, metadata map[string]interface{}) (model.Classi
 	// 1. organizer_category fault-tolerant parsing (M8a)
 	if metadata != nil {
 		if rawVal, ok := metadata["organizer_category"]; ok && rawVal != nil {
-			if cat, ok := parseOrganizerCategory(rawVal); ok {
-				log.Printf("stage1 rule match: organizer_category=%v -> category=%s", rawVal, cat)
+			if cats := parseOrganizerCategories(rawVal); len(cats) == 1 {
+				log.Printf("stage1 rule match: organizer_category=%v -> category=%s", rawVal, cats[0])
 				return model.ClassifierResult{
-					Category: cat,
+					Category: cats[0],
 					NeedLLM:  false,
 				}, true
+			} else if len(cats) > 1 {
+				// Multi-valued organizer_category means the upstream source
+				// itself is unsure (e.g. ["bango_porn","porn"]): it is not a
+				// high-confidence signal, so degrade to the LLM classifier.
+				log.Printf("stage1 rule match: ambiguous organizer_category=%v (%s), degrading to LLM classification", rawVal, cats)
+			} else {
+				log.Printf("organizer_category provided but no valid Category found in: %v", rawVal)
 			}
-			log.Printf("organizer_category provided but no valid Category found in: %v", rawVal)
 		}
 	}
 
@@ -126,45 +132,46 @@ func MatchByRules(files []string, metadata map[string]interface{}) (model.Classi
 	return model.ClassifierResult{}, false
 }
 
-func parseOrganizerCategory(raw any) (model.Category, bool) {
+// parseOrganizerCategories collects the distinct valid categories from raw,
+// preserving first-seen order. A single result is a high-confidence rule hit;
+// multiple results signal upstream ambiguity that must be resolved by the LLM.
+func parseOrganizerCategories(raw any) []model.Category {
+	var candidates []model.Category
+	appendValid := func(cat model.Category) {
+		if !isValidCategory(cat) {
+			return
+		}
+		for _, existing := range candidates {
+			if existing == cat {
+				return
+			}
+		}
+		candidates = append(candidates, cat)
+	}
+
 	switch v := raw.(type) {
 	case model.Category:
-		if isValidCategory(v) {
-			return v, true
-		}
+		appendValid(v)
 	case string:
-		cat := model.Category(strings.TrimSpace(v))
-		if isValidCategory(cat) {
-			return cat, true
-		}
+		appendValid(model.Category(strings.TrimSpace(v)))
 	case []model.Category:
 		for _, item := range v {
-			if isValidCategory(item) {
-				return item, true
-			}
+			appendValid(item)
 		}
 	case []string:
 		for _, item := range v {
-			cat := model.Category(strings.TrimSpace(item))
-			if isValidCategory(cat) {
-				return cat, true
-			}
+			appendValid(model.Category(strings.TrimSpace(item)))
 		}
 	case []interface{}:
 		for _, item := range v {
 			if strVal, ok := item.(string); ok {
-				cat := model.Category(strings.TrimSpace(strVal))
-				if isValidCategory(cat) {
-					return cat, true
-				}
+				appendValid(model.Category(strings.TrimSpace(strVal)))
 			} else if catVal, ok := item.(model.Category); ok {
-				if isValidCategory(catVal) {
-					return catVal, true
-				}
+				appendValid(catVal)
 			}
 		}
 	}
-	return model.CategoryUnknown, false
+	return candidates
 }
 
 func isValidCategory(c model.Category) bool {
