@@ -13,6 +13,7 @@ AutoGet Organizer is the post-processing core service in an automated media pipe
 
 ## Critical Design Rules
 
+- **NO over-design.** Choose the simplest implementation that fully meets the current requirements. Avoid speculative abstractions, configuration, and indirection. Grow the system in layers: start from the smallest version that works end to end, then add each new capability on top of a working product. Never trade a working product for unfinished complexity.
 - **NO regex/pattern matching after Stage 1.** All semantic work — episode number extraction (CJK-style markers, `1x05`, `OVA1`, `[01-02]` collections), multi-part detection (`cd1`/`partA`/volume markers), fansub noise stripping (`[HDSky]`, `1080p.WEB-DL`), subtitle language detection — is delegated to LLM reasoning. Do not "fix" edge cases with hardcoded regex; real-world filenames are too messy for pattern matching to ever be complete.
 - **Code is only responsible for**: flow orchestration, external metadata tool calls, and physical I/O safety validation.
 - **All LLM calls use strict Structured Outputs (JSON Schema)** via the unified `ai.Provider` interface (`GenerateStructured`), with `temperature: 0.1`. Providers: Gemini and Grok. Never parse free-form LLM text.
