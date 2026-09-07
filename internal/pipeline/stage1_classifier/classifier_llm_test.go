@@ -2,6 +2,7 @@ package stage1classifier
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -200,4 +201,83 @@ func TestClassifierLLM_ArbiterResolvesConflict(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, model.CategoryMovie, res.Category)
 	assert.Equal(t, "Art Movie", res.Entities["clean_title"])
+}
+
+func TestClassifierLLM_WithSearchGrounding(t *testing.T) {
+	t.Parallel()
+
+	mockProv := mock.NewProvider()
+	// Step 0: Search grounder returns extracted facts
+	mockProv.AddRule(mock.Rule{
+		PromptPattern: "media intelligence search assistant",
+		Response: SearchContext{
+			SearchSummary: "GirlsWay is a lesbian adult entertainment website and production company.",
+			DetectedType:  "Western adult video / porn",
+			OfficialTitle: "Megan Mistakes Runaway Brides Regret",
+			Studio:        "GirlsWay",
+			Actors:        []string{"Khloe Kapri", "Megan Mistakes"},
+			Year:          2026,
+		},
+	})
+	// Checkers run with search context injected into payload
+	mockProv.AddRule(mock.Rule{
+		PromptPattern: "Western/general adult video (porn)",
+		Response: CheckerResponse{
+			Confidence: ConfidenceYes,
+			Reason:     "Confirmed Western adult video from search context (GirlsWay studio)",
+			Entities: CheckerEntities{
+				CleanTitle: "Megan Mistakes Runaway Brides Regret",
+				Year:       2026,
+				Actors:     []string{"Khloe Kapri", "Megan Mistakes"},
+			},
+		},
+	})
+	mockProv.AddRule(mock.Rule{
+		PromptPattern: "Japanese adult video (JAV)",
+		Response: CheckerResponse{
+			Confidence: ConfidenceNo,
+			Reason:     "Not JAV",
+		},
+	})
+	mockProv.AddRule(mock.Rule{
+		PromptPattern: "standalone movie or film",
+		Response: CheckerResponse{
+			Confidence: ConfidenceNo,
+			Reason:     "Not a mainstream movie",
+		},
+	})
+	mockProv.AddRule(mock.Rule{
+		PromptPattern: "episodic TV series",
+		Response: CheckerResponse{
+			Confidence: ConfidenceNo,
+			Reason:     "Not TV series",
+		},
+	})
+	mockProv.AddRule(mock.Rule{
+		PromptPattern: "music video (MV)",
+		Response: CheckerResponse{
+			Confidence: ConfidenceNo,
+			Reason:     "Not music video",
+		},
+	})
+
+	llm := NewClassifierLLM(mockProv)
+	files := []string{"GirlsWay Khloe Kapri Megan Mistakes Runaway Brides Regret 2026 2160p WEB-DL H264 AAC2.0-VSEX.mp4"}
+
+	res, err := llm.Classify(context.Background(), files, nil)
+	require.NoError(t, err)
+	assert.Equal(t, model.CategoryPorn, res.Category)
+	assert.Equal(t, "Megan Mistakes Runaway Brides Regret", res.Entities["clean_title"])
+	assert.Equal(t, 2026, res.Entities["year"])
+
+	// Verify that the search grounder prompt was called in step 0
+	calls := mockProv.Calls()
+	searchCalled := false
+	for _, call := range calls {
+		if strings.Contains(call.Prompt, "media intelligence search assistant") {
+			searchCalled = true
+			break
+		}
+	}
+	assert.True(t, searchCalled, "search grounder must be called during classification")
 }

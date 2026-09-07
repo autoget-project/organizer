@@ -111,8 +111,18 @@ func TestE2E_AnimeEpisodeRoutingToAnimTVSeries(t *testing.T) {
 		// Invariants:
 		// 1. Root must be anim_tv_series/ because of "动画" genre
 		assert.True(t, strings.HasPrefix(*act.Target, "anim_tv_series/"))
-		// 2. Title should contain 葬送的芙莉莲
-		assert.Contains(t, *act.Target, "葬送的芙莉莲")
+		// 2. Title must be an official form of the series. Without TMDB the
+		// title comes from Stage 1's clean_title, which varies by provider:
+		// zh-CN official, romaji, or English official are all accepted.
+		titleForms := []string{"葬送的芙莉莲", "Sousou no Frieren", "Frieren: Beyond Journey's End"}
+		matched := false
+		for _, form := range titleForms {
+			if strings.Contains(*act.Target, form) {
+				matched = true
+				break
+			}
+		}
+		assert.True(t, matched, "target %q should contain one of the official titles %v", *act.Target, titleForms)
 		// 3. Season should be Season 01
 		assert.Contains(t, *act.Target, "Season 01")
 		// 4. Episode must be recognized as S01E03

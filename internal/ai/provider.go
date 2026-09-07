@@ -17,6 +17,12 @@ type Provider interface {
 	GenerateStructured(ctx context.Context, prompt string, schema any, result any) error
 }
 
+// SearchProvider is an optional interface implemented by providers that support built-in web search (grounding).
+type SearchProvider interface {
+	Provider
+	GenerateStructuredWithSearch(ctx context.Context, prompt string, schema any, result any) error
+}
+
 // Option represents a functional option for configuring a Provider.
 type Option func(*ProviderOptions)
 

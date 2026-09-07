@@ -39,13 +39,14 @@ type ArbiterInputSpecialist struct {
 }
 
 type ArbiterInputPayload struct {
-	Files       []string                 `json:"files"`
-	Metadata    map[string]interface{}   `json:"metadata"`
-	Specialists []ArbiterInputSpecialist `json:"specialists"`
+	Files         []string                 `json:"files"`
+	Metadata      map[string]interface{}   `json:"metadata"`
+	SearchContext *SearchContext           `json:"search_context,omitempty"`
+	Specialists   []ArbiterInputSpecialist `json:"specialists"`
 }
 
 // DecideArbiter invokes the arbiter LLM to resolve multiple or conflicting checker findings.
-func DecideArbiter(ctx context.Context, provider ai.Provider, files []string, metadata map[string]interface{}, results []CheckerResult) (ArbiterDecision, error) {
+func DecideArbiter(ctx context.Context, provider ai.Provider, files []string, metadata map[string]interface{}, results []CheckerResult, searchCtx SearchContext) (ArbiterDecision, error) {
 	if provider == nil {
 		return ArbiterDecision{Category: model.CategoryUnknown}, fmt.Errorf("ai provider is nil")
 	}
@@ -66,6 +67,9 @@ func DecideArbiter(ctx context.Context, provider ai.Provider, files []string, me
 		Files:       files,
 		Metadata:    metadata,
 		Specialists: specs,
+	}
+	if searchCtx.HasInfo() {
+		payload.SearchContext = &searchCtx
 	}
 
 	payloadBytes, err := json.Marshal(payload)

@@ -92,6 +92,10 @@ func (p *Provider) Reset() {
 	p.defaultErr = nil
 }
 
+func (p *Provider) GenerateStructuredWithSearch(ctx context.Context, prompt string, schema any, result any) error {
+	return p.GenerateStructured(ctx, prompt, schema, result)
+}
+
 func (p *Provider) GenerateStructured(ctx context.Context, prompt string, schema any, result any) error {
 	p.mu.Lock()
 	p.calls = append(p.calls, CallRecord{

@@ -125,7 +125,7 @@ type flexibleCheckerResponse struct {
 	Entities   CheckerEntities `json:"entities"`
 }
 
-func runSpecialistChecker(ctx context.Context, provider ai.Provider, cat model.Category, promptTpl string, files []string, metadata map[string]interface{}) (CheckerResponse, error) {
+func runSpecialistChecker(ctx context.Context, provider ai.Provider, cat model.Category, promptTpl string, files []string, metadata map[string]interface{}, searchCtx SearchContext) (CheckerResponse, error) {
 	if provider == nil {
 		return CheckerResponse{Confidence: ConfidenceNo}, fmt.Errorf("ai provider is nil")
 	}
@@ -133,6 +133,9 @@ func runSpecialistChecker(ctx context.Context, provider ai.Provider, cat model.C
 	payload := map[string]interface{}{
 		"files":    files,
 		"metadata": metadata,
+	}
+	if searchCtx.HasInfo() {
+		payload["search_context"] = searchCtx
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {

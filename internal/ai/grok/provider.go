@@ -57,10 +57,16 @@ func (p *Provider) Name() string {
 }
 
 type chatCompletionRequest struct {
-	Model          string              `json:"model"`
-	Messages       []chatMessage       `json:"messages"`
-	Temperature    float64             `json:"temperature"`
-	ResponseFormat *chatResponseFormat `json:"response_format,omitempty"`
+	Model          string                `json:"model"`
+	Messages       []chatMessage         `json:"messages"`
+	Temperature    float64               `json:"temperature"`
+	ResponseFormat *chatResponseFormat   `json:"response_format,omitempty"`
+	SearchParams   *chatSearchParameters `json:"search_parameters,omitempty"`
+}
+
+// chatSearchParameters enables xAI server-side live search on chat completions.
+type chatSearchParameters struct {
+	Mode string `json:"mode,omitempty"`
 }
 
 type chatMessage struct {
@@ -93,6 +99,16 @@ type chatCompletionResponse struct {
 }
 
 func (p *Provider) GenerateStructured(ctx context.Context, prompt string, schema any, result any) error {
+	return p.generate(ctx, prompt, schema, result, false)
+}
+
+// GenerateStructuredWithSearch implements ai.SearchProvider using xAI's
+// server-side live search (search_parameters.mode=on).
+func (p *Provider) GenerateStructuredWithSearch(ctx context.Context, prompt string, schema any, result any) error {
+	return p.generate(ctx, prompt, schema, result, true)
+}
+
+func (p *Provider) generate(ctx context.Context, prompt string, schema any, result any, withSearch bool) error {
 	var jsonSchema ai.JSONSchema
 	var err error
 
@@ -122,6 +138,9 @@ func (p *Provider) GenerateStructured(ctx context.Context, prompt string, schema
 				Schema: jsonSchema,
 			},
 		},
+	}
+	if withSearch {
+		reqBody.SearchParams = &chatSearchParameters{Mode: "on"}
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)

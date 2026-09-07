@@ -71,6 +71,69 @@ func TestGrokProvider_Success(t *testing.T) {
 	assert.Equal(t, TestOutput{Name: "test-item", Count: 42}, out)
 }
 
+func TestGrokProvider_SearchVariants(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		withSearch bool
+	}{
+		{"plain generation omits search_parameters", false},
+		{"search generation enables search_parameters", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var reqBody map[string]interface{}
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&reqBody))
+
+				if tt.withSearch {
+					sp, ok := reqBody["search_parameters"].(map[string]interface{})
+					require.True(t, ok, "search_parameters must be an object")
+					assert.Equal(t, "on", sp["mode"])
+				} else {
+					assert.NotContains(t, reqBody, "search_parameters")
+				}
+
+				resp := map[string]interface{}{
+					"choices": []map[string]interface{}{
+						{
+							"message": map[string]interface{}{
+								"content": `{"name":"search-item","count":7}`,
+							},
+						},
+					},
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(resp)
+			}))
+			t.Cleanup(ts.Close)
+
+			provider := grok.NewProvider("test-api-key", ai.WithBaseURL(ts.URL))
+
+			var out TestOutput
+			var err error
+			if tt.withSearch {
+				err = provider.GenerateStructuredWithSearch(context.Background(), "test prompt", TestOutput{}, &out)
+			} else {
+				err = provider.GenerateStructured(context.Background(), "test prompt", TestOutput{}, &out)
+			}
+			require.NoError(t, err)
+			assert.Equal(t, TestOutput{Name: "search-item", Count: 7}, out)
+		})
+	}
+}
+
+func TestGrokProvider_ImplementsSearchProvider(t *testing.T) {
+	t.Parallel()
+
+	provider := grok.NewProvider("test-api-key")
+	var _ ai.SearchProvider = provider
+}
+
 func TestGrokProvider_ErrorStatus(t *testing.T) {
 	t.Parallel()
 

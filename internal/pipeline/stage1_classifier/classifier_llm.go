@@ -53,6 +53,9 @@ func (c *ClassifierLLM) Classify(ctx context.Context, files []string, metadata m
 		}
 	}
 
+	// Step 0: Single search grounding pass (only if provider supports search, e.g. Gemini)
+	searchCtx := GroundWithSearch(ctx, c.provider, files, metadata)
+
 	candidates := selectCandidates(files, metadata)
 	results := make([]CheckerResult, len(candidates))
 
@@ -68,7 +71,7 @@ func (c *ClassifierLLM) Classify(ctx context.Context, files []string, metadata m
 		}
 
 		g.Go(func() error {
-			resp, err := runSpecialistChecker(ctxGroup, c.provider, targetCat, promptTpl, files, metadata)
+			resp, err := runSpecialistChecker(ctxGroup, c.provider, targetCat, promptTpl, files, metadata, searchCtx)
 			results[idx] = CheckerResult{
 				Category: targetCat,
 				Response: resp,
@@ -137,7 +140,7 @@ func (c *ClassifierLLM) Classify(ctx context.Context, files []string, metadata m
 	allNo := len(yesResults) == 0 && len(maybeResults) == 0
 
 	// Ambiguous, multiple "yes" conflicts, multiple "maybe", or all "no": call Arbiter
-	decision, err := DecideArbiter(ctx, c.provider, files, metadata, results)
+	decision, err := DecideArbiter(ctx, c.provider, files, metadata, results, searchCtx)
 	if err != nil {
 		// Fallback: if we had at least one yes, take the first one
 		if len(yesResults) > 0 {

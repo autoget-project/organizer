@@ -60,6 +60,14 @@ func (p *Provider) Name() string {
 }
 
 func (p *Provider) GenerateStructured(ctx context.Context, prompt string, schema any, result any) error {
+	return p.generateWithOptionalSearch(ctx, prompt, schema, result, false)
+}
+
+func (p *Provider) GenerateStructuredWithSearch(ctx context.Context, prompt string, schema any, result any) error {
+	return p.generateWithOptionalSearch(ctx, prompt, schema, result, true)
+}
+
+func (p *Provider) generateWithOptionalSearch(ctx context.Context, prompt string, schema any, result any, enableSearch bool) error {
 	var jsonSchema ai.JSONSchema
 	var err error
 
@@ -77,7 +85,7 @@ func (p *Provider) GenerateStructured(ctx context.Context, prompt string, schema
 		return fmt.Errorf("failed to convert response schema: %w", err)
 	}
 
-	resp, err := p.client.Models.GenerateContent(ctx, p.model, genai.Text(prompt), &genai.GenerateContentConfig{
+	cfg := &genai.GenerateContentConfig{
 		Temperature:      ptr.Float32(float32(p.options.Temperature)),
 		ResponseMIMEType: "application/json",
 		ResponseSchema:   responseSchema,
@@ -87,7 +95,14 @@ func (p *Provider) GenerateStructured(ctx context.Context, prompt string, schema
 			{Category: genai.HarmCategorySexuallyExplicit, Threshold: genai.HarmBlockThresholdBlockNone},
 			{Category: genai.HarmCategoryDangerousContent, Threshold: genai.HarmBlockThresholdBlockNone},
 		},
-	})
+	}
+	if enableSearch {
+		cfg.Tools = []*genai.Tool{
+			{GoogleSearch: &genai.GoogleSearch{}},
+		}
+	}
+
+	resp, err := p.client.Models.GenerateContent(ctx, p.model, genai.Text(prompt), cfg)
 	if err != nil {
 		return fmt.Errorf("gemini API request failed: %w", err)
 	}
