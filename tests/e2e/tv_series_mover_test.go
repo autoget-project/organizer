@@ -113,8 +113,9 @@ func TestE2E_AnimeEpisodeRoutingToAnimTVSeries(t *testing.T) {
 		assert.True(t, strings.HasPrefix(*act.Target, "anim_tv_series/"))
 		// 2. Title must be an official form of the series. Without TMDB the
 		// title comes from Stage 1's clean_title, which varies by provider:
-		// zh-CN official, romaji, or English official are all accepted.
-		titleForms := []string{"葬送的芙莉莲", "Sousou no Frieren", "Frieren: Beyond Journey's End"}
+		// zh-CN official (simplified or traditional), romaji, or English
+		// official are all accepted.
+		titleForms := []string{"葬送的芙莉莲", "葬送的芙莉蓮", "Sousou no Frieren", "Frieren: Beyond Journey's End"}
 		matched := false
 		for _, form := range titleForms {
 			if strings.Contains(*act.Target, form) {

@@ -34,6 +34,12 @@ var (
 		".wmv": {},
 		".ts":  {},
 	}
+	imageExtensions = map[string]struct{}{
+		".jpg":  {},
+		".jpeg": {},
+		".png":  {},
+		".webp": {},
+	}
 )
 
 var (

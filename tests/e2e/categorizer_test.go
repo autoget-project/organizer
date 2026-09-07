@@ -175,6 +175,32 @@ func TestE2E_Stage1CheckersOnly(t *testing.T) {
 			},
 			wantCategory: model.CategoryMusic,
 		},
+		{
+			name: "photobook_image_set",
+			files: []string{
+				"Amami Tsubasa Photo Collection/001.jpg",
+				"Amami Tsubasa Photo Collection/002.jpeg",
+				"Amami Tsubasa Photo Collection/003.png",
+			},
+			wantCategory: model.CategoryPhotobook,
+		},
+		{
+			name: "movie_with_subtitle_and_nfo",
+			files: []string{
+				"Inception.2010.1080p.BluRay.x264-HDChina.mkv",
+				"Inception.2010.1080p.BluRay.x264-HDChina.chi.srt",
+				"Inception.2010.nfo",
+			},
+			wantCategory: model.CategoryMovie,
+		},
+		{
+			name: "unknown_software_installer",
+			files: []string{
+				"Photoshop_2024_Installer/setup.exe",
+				"Photoshop_2024_Installer/assets/data01.rar",
+			},
+			wantCategory: model.CategoryUnknown,
+		},
 	}
 
 	runWithLiveAIProviders(t, func(t *testing.T, prov ai.Provider) {

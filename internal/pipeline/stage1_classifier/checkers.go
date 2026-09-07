@@ -182,10 +182,6 @@ func runSpecialistChecker(ctx context.Context, provider ai.Provider, cat model.C
 func selectCandidates(files []string, metadata map[string]interface{}) []model.Category {
 	var hasVideo, hasAudio, hasImage, hasDoc bool
 
-	imageExtensions := map[string]struct{}{
-		".jpg": {}, ".jpeg": {}, ".png": {}, ".webp": {},
-	}
-
 	for _, f := range files {
 		ext := strings.ToLower(filepath.Ext(f))
 		if _, ok := videoExtensions[ext]; ok {

@@ -4,8 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
-
-	"golang.org/x/sync/errgroup"
+	"sync"
 
 	"github.com/autoget-project/organizer/internal/ai"
 	"github.com/autoget-project/organizer/internal/model"
@@ -59,31 +58,28 @@ func (c *ClassifierLLM) Classify(ctx context.Context, files []string, metadata m
 	candidates := selectCandidates(files, metadata)
 	results := make([]CheckerResult, len(candidates))
 
-	g, ctxGroup := errgroup.WithContext(ctx)
+	var wg sync.WaitGroup
 
 	for i, cat := range candidates {
-		idx := i
-		targetCat := cat
-		promptTpl, ok := getCheckerPrompt(targetCat)
+		promptTpl, ok := getCheckerPrompt(cat)
 		if !ok {
-			results[idx] = CheckerResult{Category: targetCat, Response: CheckerResponse{Confidence: ConfidenceNo}}
+			results[i] = CheckerResult{Category: cat, Response: CheckerResponse{Confidence: ConfidenceNo}}
 			continue
 		}
 
-		g.Go(func() error {
-			resp, err := runSpecialistChecker(ctxGroup, c.provider, targetCat, promptTpl, files, metadata, searchCtx)
-			results[idx] = CheckerResult{
-				Category: targetCat,
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err := runSpecialistChecker(ctx, c.provider, cat, promptTpl, files, metadata, searchCtx)
+			results[i] = CheckerResult{
+				Category: cat,
 				Response: resp,
 				Err:      err,
 			}
-			return nil
-		})
+		}()
 	}
 
-	if err := g.Wait(); err != nil {
-		return model.ClassifierResult{Category: model.CategoryUnknown, NeedLLM: true}, err
-	}
+	wg.Wait()
 
 	// Check if all checkers failed with error
 	var firstErr error
