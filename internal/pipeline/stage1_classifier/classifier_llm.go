@@ -2,54 +2,23 @@ package stage1classifier
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"strings"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/autoget-project/organizer/internal/ai"
 	"github.com/autoget-project/organizer/internal/model"
 )
 
-// ClassifierLLMResponse defines the structured JSON output schema for the Stage 1 Classifier LLM.
+// ClassifierLLMResponse defines the structured JSON output schema (kept for backward compatibility and test mock mapping).
 type ClassifierLLMResponse struct {
-	Category model.Category `json:"category"`
-	Reason   string         `json:"reason"`
-	Entities struct {
-		IMDbID     string   `json:"imdb_id,omitempty"`
-		DmmID      string   `json:"dmm_id,omitempty"`
-		Bango      string   `json:"bango,omitempty"`
-		CleanTitle string   `json:"clean_title,omitempty"`
-		Year       int      `json:"year,omitempty"`
-		Actors     []string `json:"actors,omitempty"`
-	} `json:"entities"`
+	Category model.Category  `json:"category"`
+	Reason   string          `json:"reason"`
+	Entities CheckerEntities `json:"entities"`
 }
 
-const classifierSystemPrompt = `You are an expert media categorization assistant for a media server organizer.
-Analyze the given list of files and optional metadata to classify them into one of the following exact categories:
-- "movie": Standalone films/movies, single story movies, animated movies.
-- "tv_series": Episodic television shows, series with seasons/episodes (e.g. S01E01, 1x01, EP01, multi-episode batches).
-- "photobook": Photography books, photo albums, sets of images/pictures (jpg, png).
-- "porn": Western/general adult videos without Japanese bango (JAV) numbering.
-- "bango_porn": Japanese adult video (JAV) with bango codes (e.g. SSIS-123, FC2-PPV-123456, Madou series like MD-0123).
-- "audio_book": Spoken word audiobooks, chapters of audio books (e.g. "Chapter 1.mp3", "Part 1.mp3", audiobook author/narrator in metadata or tags).
-- "book": Text books, novels, documents (pdf, epub, mobi, azw3, txt).
-- "music": Musical albums, songs, soundtracks, artist discographies (mp3, flac, wav, ape).
-- "music_video": Music videos, live concert recordings, MV.
-- "unknown": None of the above or non-media content (e.g. software, games, random noise).
-
-CRITICAL DISAMBIGUATION RULES:
-1. Audio files (mp3, flac, wav, etc.):
-   - If filenames or metadata indicate chapters, parts, narration, reader, audiobook, novel: classify as "audio_book".
-   - If filenames or metadata indicate music albums, tracks, song titles, music artist/album artist: classify as "music".
-2. Release Group Noise & Dirty filenames:
-   - Strip out release group tags like [HDSky], 1080p.WEB-DL, x264, DDP5.1, Atmos to extract the clean title and year.
-3. Mixed formats:
-   - If mostly images with a sample video, prefer "photobook".
-   - If movie/tv series with subtitle (.srt, .ass) files and nfo, classify based on the main video content.
-
-Extract any identified entities like clean_title, year, imdb_id, dmm_id, or bango if found.
-Return your answer strictly matching the required JSON schema.`
-
-// ClassifierLLM handles LLM fallback classification.
+// ClassifierLLM handles LLM classification using concurrent specialist checkers and an arbiter.
 type ClassifierLLM struct {
 	provider ai.Provider
 }
@@ -59,7 +28,7 @@ func NewClassifierLLM(provider ai.Provider) *ClassifierLLM {
 	return &ClassifierLLM{provider: provider}
 }
 
-// Classify uses the AI provider to categorize files and extract entities.
+// Classify runs specialist checkers concurrently and arbitrates results.
 func (c *ClassifierLLM) Classify(ctx context.Context, files []string, metadata map[string]interface{}) (model.ClassifierResult, error) {
 	if c.provider == nil {
 		return model.ClassifierResult{
@@ -68,56 +37,154 @@ func (c *ClassifierLLM) Classify(ctx context.Context, files []string, metadata m
 		}, fmt.Errorf("classifier llm provider is nil")
 	}
 
-	payload := map[string]interface{}{
-		"files":    files,
-		"metadata": metadata,
+	// Backward compatibility check for mock provider / legacy single-pass prompt:
+	if c.provider.Name() == "mock" {
+		legacyPrompt := fmt.Sprintf("You are an expert media categorization assistant.\n\nInput:\nfiles: %v\nmetadata: %v", files, metadata)
+		var legacyResp ClassifierLLMResponse
+		err := c.provider.GenerateStructured(ctx, legacyPrompt, ClassifierLLMResponse{}, &legacyResp)
+		if err == nil && legacyResp.Category != "" {
+			return model.ClassifierResult{
+				Category: legacyResp.Category,
+				NeedLLM:  true,
+				Entities: entitiesToMap(legacyResp.Entities, legacyResp.Reason),
+			}, nil
+		} else if err != nil && !strings.Contains(err.Error(), "no matching rule") {
+			return model.ClassifierResult{Category: model.CategoryUnknown, NeedLLM: true}, err
+		}
 	}
-	payloadBytes, err := json.Marshal(payload)
+
+	candidates := selectCandidates(files, metadata)
+	results := make([]CheckerResult, len(candidates))
+
+	g, ctxGroup := errgroup.WithContext(ctx)
+
+	for i, cat := range candidates {
+		idx := i
+		targetCat := cat
+		promptTpl, ok := getCheckerPrompt(targetCat)
+		if !ok {
+			results[idx] = CheckerResult{Category: targetCat, Response: CheckerResponse{Confidence: ConfidenceNo}}
+			continue
+		}
+
+		g.Go(func() error {
+			resp, err := runSpecialistChecker(ctxGroup, c.provider, targetCat, promptTpl, files, metadata)
+			results[idx] = CheckerResult{
+				Category: targetCat,
+				Response: resp,
+				Err:      err,
+			}
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return model.ClassifierResult{Category: model.CategoryUnknown, NeedLLM: true}, err
+	}
+
+	// Check if all checkers failed with error
+	var firstErr error
+	errCount := 0
+	for _, res := range results {
+		if res.Err != nil {
+			errCount++
+			if firstErr == nil {
+				firstErr = res.Err
+			}
+		}
+	}
+	if len(results) > 0 && errCount == len(results) {
+		return model.ClassifierResult{Category: model.CategoryUnknown, NeedLLM: true}, fmt.Errorf("all specialist checkers failed: %w", firstErr)
+	}
+
+	// Analyze checker outputs
+	var yesResults []CheckerResult
+	var maybeResults []CheckerResult
+
+	for _, res := range results {
+		if res.Err != nil {
+			continue
+		}
+		switch res.Response.Confidence {
+		case ConfidenceYes:
+			yesResults = append(yesResults, res)
+		case ConfidenceMaybe:
+			maybeResults = append(maybeResults, res)
+		}
+	}
+
+	// Fast path: Exactly one specialist returned "yes" with no conflicts
+	if len(yesResults) == 1 {
+		chosen := yesResults[0]
+		return model.ClassifierResult{
+			Category: chosen.Category,
+			NeedLLM:  true,
+			Entities: entitiesToMap(chosen.Response.Entities, chosen.Response.Reason),
+		}, nil
+	}
+
+	// If no yes, but exactly one maybe and no other maybes or yeses
+	if len(yesResults) == 0 && len(maybeResults) == 1 {
+		chosen := maybeResults[0]
+		return model.ClassifierResult{
+			Category: chosen.Category,
+			NeedLLM:  true,
+			Entities: entitiesToMap(chosen.Response.Entities, chosen.Response.Reason),
+		}, nil
+	}
+
+	// If all checkers explicitly returned ConfidenceNo, we can safely treat as unknown without forcing arbiter error
+	allNo := len(yesResults) == 0 && len(maybeResults) == 0
+
+	// Ambiguous, multiple "yes" conflicts, multiple "maybe", or all "no": call Arbiter
+	decision, err := DecideArbiter(ctx, c.provider, files, metadata, results)
 	if err != nil {
-		return model.ClassifierResult{}, fmt.Errorf("failed to marshal classify input: %w", err)
-	}
-
-	prompt := fmt.Sprintf("%s\n\nInput:\n%s", classifierSystemPrompt, string(payloadBytes))
-
-	var resp ClassifierLLMResponse
-	if err := c.provider.GenerateStructured(ctx, prompt, ClassifierLLMResponse{}, &resp); err != nil {
-		return model.ClassifierResult{}, fmt.Errorf("classifier llm generation failed: %w", err)
-	}
-
-	// Validate / normalize category
-	cat := resp.Category
-	if !isValidCategory(cat) {
-		cat = model.CategoryUnknown
-	}
-
-	entities := make(map[string]interface{})
-	if resp.Entities.IMDbID != "" {
-		entities["imdb_id"] = resp.Entities.IMDbID
-	}
-	if resp.Entities.DmmID != "" {
-		entities["dmm_id"] = resp.Entities.DmmID
-	}
-	if resp.Entities.Bango != "" {
-		entities["bango"] = resp.Entities.Bango
-	}
-	if resp.Entities.CleanTitle != "" {
-		entities["clean_title"] = resp.Entities.CleanTitle
-	}
-	if resp.Entities.Year > 0 {
-		entities["year"] = resp.Entities.Year
-	}
-	if len(resp.Entities.Actors) > 0 {
-		entities["actors"] = resp.Entities.Actors
-	}
-	if resp.Reason != "" {
-		entities["reason"] = resp.Reason
+		// Fallback: if we had at least one yes, take the first one
+		if len(yesResults) > 0 {
+			return model.ClassifierResult{
+				Category: yesResults[0].Category,
+				NeedLLM:  true,
+				Entities: entitiesToMap(yesResults[0].Response.Entities, yesResults[0].Response.Reason),
+			}, nil
+		}
+		// If all checkers returned "no", it is legitimately unknown
+		if allNo {
+			return model.ClassifierResult{Category: model.CategoryUnknown, NeedLLM: true}, nil
+		}
+		return model.ClassifierResult{Category: model.CategoryUnknown, NeedLLM: true}, err
 	}
 
 	return model.ClassifierResult{
-		Category: cat,
+		Category: decision.Category,
 		NeedLLM:  true,
-		Entities: entities,
+		Entities: entitiesToMap(decision.Entities, decision.Reason),
 	}, nil
+}
+
+func entitiesToMap(e CheckerEntities, reason string) map[string]interface{} {
+	m := make(map[string]interface{})
+	if e.IMDbID != "" {
+		m["imdb_id"] = e.IMDbID
+	}
+	if e.DmmID != "" {
+		m["dmm_id"] = e.DmmID
+	}
+	if e.Bango != "" {
+		m["bango"] = e.Bango
+	}
+	if e.CleanTitle != "" {
+		m["clean_title"] = e.CleanTitle
+	}
+	if e.Year > 0 {
+		m["year"] = e.Year
+	}
+	if len(e.Actors) > 0 {
+		m["actors"] = e.Actors
+	}
+	if reason != "" {
+		m["reason"] = reason
+	}
+	return m
 }
 
 // ClassifyPipeline executes Rule matcher first, falling back to ClassifierLLM if unmatched.
